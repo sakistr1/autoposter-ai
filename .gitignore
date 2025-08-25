@@ -55,3 +55,7 @@ static/uploads/tmp/*
 # secrets
 /test_env.py*
 .env*
+
+# secrets
+/test_env.py*
+.env*
