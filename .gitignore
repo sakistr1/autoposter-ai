@@ -45,3 +45,6 @@ static/uploads/brand/*
 !static/uploads/brand/.gitkeep
 static/uploads/products/*
 !static/uploads/products/.gitkeep
+
+# local backups
+static/uploads.bak.*
