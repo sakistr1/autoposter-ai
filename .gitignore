@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Env / secrets
+.env
+*.env
+.env.*.local
+
+# Venv
+.venv/
+venv/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Test/coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases / runtime
+*.db
+*.sqlite3
+
+# Generated & uploads (κρατάμε μόνο .gitkeep)
+production_engine/static/generated/*
+!production_engine/static/generated/.gitkeep
+production_engine/static/uploads/brand/*
+!production_engine/static/uploads/brand/.gitkeep
+production_engine/static/uploads/products/*
+!production_engine/static/uploads/products/.gitkeep

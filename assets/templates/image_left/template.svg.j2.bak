@@ -1,0 +1,65 @@
+{# --- Resolve ratio config & canvas size --- #}
+{% set R = (ratio if ratio is defined else (r if r is defined else (meta.ratios[rec.ratio] if meta is defined and meta.ratios is defined else {}))) %}
+{% set W = R.get('width', 1080) %}
+{% set H = R.get('height', 1350) %}
+
+{# --- Resolve fields (title/price/image/cta/brand_color) --- #}
+{% set F = (meta.fields if meta is defined and meta.fields is defined else fields) %}
+{% set IMG = F.get('image', {}) %}
+{% set TTL = F.get('title', {}) %}
+{% set PRC = F.get('price', {}) %}
+{% set CTA = F.get('cta', {}) %}
+{% set BRAND = F.get('brand_color', {}) %}
+
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="{{ W }}" height="{{ H }}"
+     viewBox="0 0 {{ W }} {{ H }}">
+  <!-- background -->
+  <rect x="0" y="0" width="{{ W }}" height="{{ H }}" fill="#ffffff" />
+
+  <!-- main image -->
+  {% if image_url %}
+  <image href="{{ image_url }}"
+         x="{{ IMG.get('x', 60) }}"
+         y="{{ IMG.get('y', 60) }}"
+         width="{{ IMG.get('w', 600) }}"
+         height="{{ IMG.get('h', 840) }}"
+         preserveAspectRatio="{{ 'xMidYMid ' ~ (IMG.get('fit','cover') == 'contain' and 'meet' or 'slice') }}"/>
+  {% endif %}
+
+  <!-- title -->
+  {% if title %}
+  <text x="{{ TTL.get('x', 720) }}"
+        y="{{ TTL.get('y', 520) }}"
+        font-family="sans-serif"
+        font-size="48"
+        text-anchor="{{ TTL.get('align','start') == 'center' and 'middle' or (TTL.get('align') == 'end' and 'end' or 'start') }}"
+        fill="#111111">
+    {{ title }}
+  </text>
+  {% endif %}
+
+  <!-- price -->
+  {% if price %}
+  <text x="{{ PRC.get('x', 720) }}"
+        y="{{ PRC.get('y', 620) }}"
+        font-family="sans-serif"
+        font-size="42"
+        text-anchor="{{ PRC.get('align','start') == 'center' and 'middle' or (PRC.get('align') == 'end' and 'end' or 'start') }}"
+        fill="{{ BRAND.get('value','#0fbf91') }}">
+    {{ price }}
+  </text>
+  {% endif %}
+
+  <!-- CTA -->
+  {% if cta %}
+  <text x="{{ CTA.get('x', 720) }}"
+        y="{{ CTA.get('y', 720) }}"
+        font-family="sans-serif"
+        font-size="36"
+        text-anchor="{{ CTA.get('align','start') == 'center' and 'middle' or (CTA.get('align') == 'end' and 'end' or 'start') }}"
+        fill="#333333">
+    {{ cta }}
+  </text>
+  {% endif %}
+</svg>

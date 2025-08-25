@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Σύνδεση • Autoposter</title>
+  <style>
+    :root{--bg:#0b1620;--panel:#0f1f2b;--accent:#1f6feb}
+    body{margin:0;background:var(--bg);color:#e5e7eb;font:14px system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:520px;margin:8vh auto;padding:0 16px}
+    .card{background:var(--panel);border:1px solid #1f2c38;border-radius:14px;padding:18px}
+    input,button{width:100%;padding:12px;border-radius:10px;border:1px solid #334155;background:#0c1a23;color:#e5e7eb}
+    button{background:var(--accent);border-color:var(--accent);cursor:pointer}
+    .muted{color:#9aa4af}
+    .err{color:#f87171;margin-top:8px;min-height:1.2em}
+    .row{display:grid;grid-template-columns:1fr;gap:10px}
+    .tabs{display:flex;gap:8px;margin-bottom:12px}
+    .tab{flex:1;padding:10px;border-radius:10px;border:1px solid #334155;background:#0c1a23;text-align:center;cursor:pointer}
+    .tab.active{background:var(--accent);border-color:var(--accent)}
+    .hidden{display:none}
+    label{display:block;margin:8px 0 4px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="tabs">
+      <button id="tabLogin" class="tab active">Σύνδεση</button>
+      <button id="tabRegister" class="tab">Εγγραφή</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="viewLogin" class="row">
+      <div class="muted">Συμπλήρωσε και πάτα Login.</div>
+      <div>
+        <label>Email</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
+      </div>
+      <div>
+        <label>Κωδικός</label>
+        <input id="password" type="password" placeholder="•••••••" autocomplete="current-password" />
+      </div>
+      <button id="btnLogin">Login</button>
+      <div id="msg" class="err"></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="viewRegister" class="row hidden">
+      <div class="muted">Δημιούργησε λογαριασμό.</div>
+      <div>
+        <label>Email</label>
+        <input id="reg_email" type="email" placeholder="you@example.com" />
+      </div>
+      <div>
+        <label>Username</label>
+        <input id="reg_username" type="text" placeholder="π.χ. demo10" />
+      </div>
+      <div>
+        <label>Κωδικός</label>
+        <input id="reg_password" type="password" placeholder="•••••••" />
+      </div>
+      <button id="btnRegister">Εγγραφή</button>
+      <div id="msgReg" class="err"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY = 'autoposter_token';
+const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+const params = new URLSearchParams(location.search);
+const next = params.get('next') || '/dashboard.html';
+
+function show(id){
+  document.getElementById('viewLogin').classList.toggle('hidden', id!=='login');
+  document.getElementById('viewRegister').classList.toggle('hidden', id!=='register');
+  document.getElementById('tabLogin').classList.toggle('active', id==='login');
+  document.getElementById('tabRegister').classList.toggle('active', id==='register');
+}
+
+document.getElementById('tabLogin').onclick = ()=>show('login');
+document.getElementById('tabRegister').onclick = ()=>show('register');
+
+// --- token validation: redirect ΜΟΝΟ αν είναι έγκυρο ---
+async function tryRedirectIfValidToken() {
+  const t = getToken();
+  if (!t) return;
+  try {
+    const r = await fetch('/me/credits', { headers: { 'Authorization': 'Bearer ' + t } });
+    if (r.ok) location.replace(next);
+    else if (r.status===401) clearToken();
+  } catch {}
+}
+
+// --- login ---
+async function doLogin() {
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('password').value;
+  const msgEl = document.getElementById('msg');
+  msgEl.textContent = '';
+
+  if (!email || !pass) { msgEl.textContent = 'Συμπλήρωσε email και κωδικό.'; return; }
+
+  try {
+    const body = new URLSearchParams({ username: email, password: pass });
+    const r = await fetch('/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    const j = await r.json();
+    if (!r.ok || !j.access_token) throw new Error((j && j.detail) || 'Login failed');
+    setToken(j.access_token);
+
+    const r2 = await fetch('/me/credits', { headers: { 'Authorization': 'Bearer ' + j.access_token } });
+    if (!r2.ok) throw new Error('Token validation failed');
+    location.replace(next);
+  } catch (e) {
+    clearToken();
+    msgEl.textContent = 'Σφάλμα: ' + (e.message || e);
+  }
+}
+document.getElementById('btnLogin').addEventListener('click',(e)=>{e.preventDefault();doLogin();});
+document.getElementById('password').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();doLogin();}});
+
+// --- register (POST /register JSON: email, username, password) ---
+async function doRegister() {
+  const email = document.getElementById('reg_email').value.trim();
+  const user  = document.getElementById('reg_username').value.trim();
+  const pass  = document.getElementById('reg_password').value;
+  const msgEl = document.getElementById('msgReg');
+  msgEl.textContent = '';
+
+  if (!email || !user || !pass) { msgEl.textContent = 'Συμπλήρωσε όλα τα πεδία.'; return; }
+
+  try {
+    const r = await fetch('/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, username: user, password: pass })
+    });
+    const j = await r.json().catch(()=> ({}));
+    if (!r.ok) {
+      // 409 = ήδη υπάρχει
+      const reason = (j && (j.detail || j.message)) || (r.status===409 ? 'Email ή username υπάρχει ήδη' : 'Αποτυχία εγγραφής');
+      throw new Error(reason);
+    }
+    // auto-login με το νέο account
+    const body = new URLSearchParams({ username: email, password: pass });
+    const rt = await fetch('/token', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body
+    });
+    const tj = await rt.json();
+    if (!rt.ok || !tj.access_token) throw new Error('Η εγγραφή πέτυχε αλλά το login απέτυχε');
+    setToken(tj.access_token);
+    location.replace(next);
+  } catch (e) {
+    msgEl.textContent = 'Σφάλμα: ' + (e.message || e);
+  }
+}
+document.getElementById('btnRegister').addEventListener('click',(e)=>{e.preventDefault();doRegister();});
+
+// ξεκίνα χωρίς auto-redirect εκτός αν το token ήδη ισχύει
+tryRedirectIfValidToken();
+</script>
+</body>
+</html>

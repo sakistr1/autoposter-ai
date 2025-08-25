@@ -1,0 +1,96 @@
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "1:1",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_79cafc930ad8995379f53641497b0591.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"1:1\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "4:5",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_1d32343109cb58644b4f115247169f40.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"4:5\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "1:1",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_3cf0e78c5c60a69caafbef690a6b76e1.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"1:1\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "4:5",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_a2063cac0304f50d0ae0020c4e5a8257.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"4:5\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "1:1",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_9d39c5c5709df5506feb948749b6c0a9.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"1:1\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "4:5",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_63ff917c2453c801ecf1a4da15b73e1f.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"4:5\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "1:1",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_23ee9d49300f1a0eeb4240164f700d44.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"1:1\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product",
+  "ratio": "4:5",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_b118a2796bd9b32e924ecded675fa949.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"4:5\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 5",
+  "ratio": "1:1",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_e5fcc99f0dc5527ff7d706e8a5ee9e92.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"1:1\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 5",
+  "ratio": "4:5",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_b23b67ea06b8be9bd5f73942c1232149.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"4:5\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 4",
+  "ratio": "1:1",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_30c706ce91babf5eaee103b657a763ac.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"1:1\"}200",
+  "resp_raw": ""
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 4",
+  "ratio": "4:5",
+  "status": "{\"preview_url\":\"/static/generated/previews/preview_7afa98fad47e9259988ea9de34f12bf5.svg\",\"warnings\":[],\"template_id\":\"image_left\",\"ratio\":\"4:5\"}200",
+  "resp_raw": ""
+}

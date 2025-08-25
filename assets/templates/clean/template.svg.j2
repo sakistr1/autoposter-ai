@@ -1,0 +1,38 @@
+{% set W = W %}{% set H = H %}
+<svg xmlns="http://www.w3.org/2000/svg" width="{{W}}" height="{{H}}" viewBox="0 0 {{W}} {{H}}">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <rect x="0" y="0" width="100%" height="140" fill="#f3f4f6"/>
+
+  {% if logo_url %}
+  <image href="{{logo_url}}" x="{{map.logo_url.x}}" y="{{map.logo_url.y}}" width="{{map.logo_url.w}}" height="{{map.logo_url.h}}" preserveAspectRatio="xMidYMid meet"/>
+  {% endif %}
+
+  {% if image_url %}
+  <image href="{{image_url}}" x="{{map.image_url.x}}" y="{{map.image_url.y}}" width="{{map.image_url.w}}" height="{{map.image_url.h}}"
+         preserveAspectRatio="{% if map.image_url.mode=='contain' %}xMidYMid meet{% else %}xMidYMid slice{% endif %}"/>
+  {% endif %}
+
+  {% if map.title and map.title.lines %}
+  <g font-family="'Noto Sans','Segoe UI',sans-serif" font-size="{{map.title.font_size}}" fill="{{map.title.color}}" font-weight="{% if map.title.bold %}700{% else %}600{% endif %}">
+    {% for line in map.title.lines %}
+    <text x="{{map.title.x}}" y="{{map.title.y + loop.index0 * (map.title.font_size + 6)}}" {% if map.title.align=='center' %}text-anchor="middle"{% elif map.title.align=='right' %}text-anchor="end"{% endif %}>{{ line }}</text>
+    {% endfor %}
+  </g>
+  {% endif %}
+
+  {% if map.price and map.price.lines %}
+  <g font-family="'Noto Sans','Segoe UI',sans-serif" font-size="{{map.price.font_size}}" fill="{{map.price.color}}" font-weight="{% if map.price.bold %}800{% else %}600{% endif %}">
+    {% for line in map.price.lines %}
+    <text x="{{map.price.x}}" y="{{map.price.y + loop.index0 * (map.price.font_size + 6)}}">{{ line }}</text>
+    {% endfor %}
+  </g>
+  {% endif %}
+
+  {% if map.cta and map.cta.lines %}
+  <g font-family="'Noto Sans','Segoe UI',sans-serif" font-size="{{map.cta.font_size}}" fill="{{map.cta.color}}" font-weight="600">
+    {% for line in map.cta.lines %}
+    <text x="{{map.cta.x}}" y="{{map.cta.y + loop.index0 * (map.cta.font_size + 6)}}" text-anchor="end">{{ line }}</text>
+    {% endfor %}
+  </g>
+  {% endif %}
+</svg>

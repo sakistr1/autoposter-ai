@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <title>Autoposter — Wizard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Προσθέτει Authorization header σε /me/* και /tengine/* -->
+  <script src="/static/js/authwrap.js?v=7"></script>
+  <style>
+    :root { --line:#1f2937; --muted:#94a3b8; --ok:#10b981; --err:#ef4444; --btn:#16a34a; --bg:#0b1020; --card:#0f172a; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:#e5e7eb;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.24)}
+    .chip{padding:6px 10px;border-radius:999px;font-size:12px;background:#111827;color:#cbd5e1;border:1px solid #263244}
+    .ok{border-color:#1c694f;background:rgba(16,185,129,.08)} .err{border-color:#5e2626;background:rgba(239,68,68,.08)}
+    .wrap{max-width:1100px;margin:16px auto;padding:0 12px}
+    .panel{background:rgba(2,6,23,.7);border:1px solid #263244;border-radius:14px;padding:14px;margin-bottom:14px}
+    h2{margin:0 0 10px 0;font-size:18px} .muted{color:var(--muted)} .small{font-size:12px}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#e5e7eb}
+    textarea{min-height:70px;resize:vertical}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btn{appearance:none;border:0;border-radius:10px;padding:10px 14px;font-weight:700;color:white;background:var(--btn);cursor:pointer}
+    .btn.secondary{background:#334155} .btn.warn{background:#ef4444} .btn:disabled{opacity:.5;cursor:not-allowed}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .preview{border:1px dashed #283445;border-radius:12px;min-height:220px;display:flex;align-items:center;justify-content:center;background:#07111e}
+    .hidden{display:none} a{color:#7dd3fc;text-decoration:none}
+
+    /* Προϊόντα — “παλιό” layout */
+    .product-box{border:2px solid #15b98144;border-radius:30px;background:#0b1220;min-height:360px;padding:22px 12px 25px 12px;margin-top:12px;display:flex;flex-direction:column;align-items:center;box-shadow:0 2px 14px #03101b}
+    .category-select-box{max-height:90px;overflow-y:auto;border-radius:10px;background:#0a1420;margin-bottom:18px;padding:2px 0;width:240px;box-shadow:0 1px 7px #0b1c2a;display:flex;flex-direction:column;align-items:center;font-size:.93rem}
+    .category-btn{font-size:.97rem;padding:5px 16px;color:#16a06e;background:#0b1220;border:1.2px solid #15b98144;border-radius:9px;margin:3px 0;cursor:pointer;font-weight:600;width:88%;text-align:center}
+    .category-btn.selected,.category-btn:hover{background:#0d1e1a;color:#21c488}
+    .products-list{display:flex;flex-wrap:wrap;justify-content:center;gap:36px 30px;margin-bottom:17px}
+    .product-card{background:#0f172a;border:1px solid #263244;border-radius:18px;box-shadow:0 2px 8px #0b1c2a;padding:12px 18px 14px 18px;text-align:center;cursor:pointer;transition:box-shadow .18s,transform .18s,background .18s;width:172px;margin-bottom:0}
+    .product-card:hover{box-shadow:0 2px 14px #03251a;transform:translateY(-2px) scale(1.04);background:#0c1a23}
+    .product-card img{width:88px;height:88px;object-fit:contain;margin-bottom:8px;border-radius:10px;background:#0c1a23}
+    .product-title{font-size:1.02rem;font-weight:700;color:#21c488;margin:0;min-height:32px;letter-spacing:.01em}
+    .back-btn{background:#334155 !important;color:#d1fae5 !important;border:1px solid #223042;margin-top:10px}
+    @media (max-width:650px){.products-list{gap:24px 14px}.product-card{width:130px}.product-card img{width:68px;height:68px}.category-select-box{width:97vw}}
+
+    /* Login overlay */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
+    .modal{background:var(--card);border:1px solid #263244;border-radius:14px;padding:16px;max-width:420px;width:90%}
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <div style="font-weight:800">Autoposter — Wizard</div>
+    <div class="small muted">Βήμα 1 → Βήμα 2 → Βήμα 3</div>
+  </div>
+  <div class="row">
+    <span id="chipCredits" class="chip">Credits: —</span>
+    <button class="btn secondary" onclick="goSettings()">Ρυθμίσεις Woo</button>
+    <button class="btn warn" onclick="logout()">Αποσύνδεση</button>
+    <!-- αφήνουμε για αργότερα τα οικονομικά -->
+    <button class="btn secondary" style="display:none" onclick="subscribe()">Subscribe</button>
+    <button class="btn secondary" style="display:none" onclick="buyCredits()">Buy credits</button>
+    <button class="btn secondary" style="display:none" onclick="cancelSubscription()">Cancel sub</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ΒΗΜΑ 1 -->
+  <section id="step1" class="panel">
+    <h2>Βήμα 1: WooCommerce κλειδιά</h2>
+    <div class="muted small">Αν είναι ήδη αποθηκευμένα, πάτα “Συνέχεια”.</div>
+    <div class="cols" style="margin-top:8px">
+      <div><label>Woo URL</label><input id="wooUrl" placeholder="https://shop.example.com"></div>
+      <div><label>Sync URL (προαιρετικό)</label><input id="syncUrl" placeholder="https://.../wp-json/... (optional)"></div>
+      <div><label>Consumer Key</label><input id="wooCk" placeholder="ck_xxxxx"></div>
+      <div><label>Consumer Secret</label><input id="wooCs" placeholder="cs_xxxxx"></div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-top:10px">
+      <div class="small muted" id="wooMsg"></div>
+      <div class="row">
+        <button class="btn secondary" onclick="loadWooIntoForm()">Φόρτωση</button>
+        <button class="btn secondary" onclick="saveWoo()">Αποθήκευση</button>
+        <button class="btn warn" onclick="clearWoo()">Διαγραφή κλειδιών</button>
+        <button class="btn" onclick="goStep2()">Συνέχεια →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ΒΗΜΑ 2 -->
+  <section id="step2" class="panel hidden">
+    <h2>Βήμα 2: Διάλεξε προϊόν</h2>
+    <div class="row">
+      <button class="btn secondary" onclick="syncProducts()">Sync τώρα</button>
+      <button class="btn secondary" onclick="useDemo()">Χωρίς Woo, demo προϊόν</button>
+      <button class="btn secondary" onclick="goStep1()">← Πίσω</button>
+    </div>
+
+    <div class="product-box">
+      <div class="category-select-box" id="categorySelectBox">
+        <div class="muted small" style="padding:6px">Χωρίς κατηγορίες</div>
+      </div>
+      <div id="productsList" class="products-list">
+        <div class="muted">Δεν βρέθηκαν προϊόντα.</div>
+      </div>
+
+      <div id="focusBox" class="hidden" style="margin-top:10px; width:100%; max-width:560px">
+        <div class="row" style="justify-content:space-between; margin:6px 0 10px 0">
+          <div class="small muted" id="focusInfo">—</div>
+          <div class="row">
+            <button class="btn secondary" onclick="prevProduct()">« Προηγούμενο</button>
+            <button class="btn secondary" onclick="nextProduct()">Επόμενο »</button>
+            <button class="btn" onclick="goStep3()">Συνέχεια →</button>
+            <button class="btn back-btn" onclick="exitFocus()">Επιστροφή στη λίστα</button>
+          </div>
+        </div>
+        <div class="product-card" style="width:100%;display:flex;gap:14px;align-items:center;justify-content:flex-start">
+          <div id="focusImg" style="width:160px;height:120px;background:#0c1a23;border-radius:12px;display:flex;align-items:center;justify-content:center">no image</div>
+          <div style="flex:1">
+            <div id="focusTitle" class="product-title" style="text-align:left">—</div>
+            <div id="focusPrice" class="muted small" style="margin-top:6px">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ΒΗΜΑ 3 -->
+  <section id="step3" class="panel hidden">
+    <h2>Βήμα 3: Σύνθεση & Preview</h2>
+    <div class="row">
+      <div id="chosenCard" class="product-card" style="flex:1;max-width:420px">
+        <div id="chosenImg" style="width:100%;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;background:#0c1a23;border-radius:10px;margin-bottom:8px">no image</div>
+        <div style="padding:2px 6px 6px 6px">
+          <div id="chosenTitle" class="product-title">—</div>
+          <div id="chosenPrice" class="muted small">—</div>
+        </div>
+      </div>
+      <div style="flex:2">
+        <div class="cols">
+          <div>
+            <label>Ύφος</label>
+            <select id="modeSelect">
+              <option value="normal">normal</option>
+              <option value="professional">professional</option>
+              <option value="humorous">humorous</option>
+            </select>
+          </div>
+          <div>
+            <label>Αναλογία</label>
+            <select id="ratioSelect">
+              <option value="4:5">4:5</option>
+              <option value="1:1">1:1</option>
+              <option value="9:16">9:16</option>
+            </select>
+          </div>
+        </div>
+        <label style="margin-top:8px">Caption (προαιρετικό)</label>
+        <textarea id="captionInput" placeholder="Κάτι σύντομο..."></textarea>
+        <div class="row" style="justify-content:space-between;margin:8px 0">
+          <div class="small muted" id="statusBox"></div>
+          <div class="row">
+            <button class="btn secondary" onclick="goStep1()">Ακύρωση</button>
+            <button class="btn secondary" onclick="goStep2()">Πίσω στα προϊόντα</button>
+            <button class="btn" onclick="doPreview()">Preview</button>
+            <button id="btnCommit" class="btn" onclick="doCommit()" disabled>Ολοκλήρωση & χρέωση</button>
+          </div>
+        </div>
+        <div id="previewBox" class="preview"><span class="muted">Καμία προεπισκόπηση</span></div>
+        <div id="finalBox" class="hidden" style="margin-top:10px">
+          <div class="row">
+            <a id="finalLink" class="btn secondary" target="_blank" href="#" download>Λήψη SVG</a>
+            <button class="btn secondary" onclick="shareFinal()">Κοινοποίηση</button>
+            <button class="btn secondary" onclick="copyFinal()">Αντιγραφή συνδέσμου</button>
+          </div>
+          <div class="small muted" style="margin-top:6px">Μετά το commit κατέβασε/μοιράσου το SVG.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Login overlay -->
+<div id="loginOverlay" class="overlay">
+  <div class="modal">
+    <h2 style="margin:0 0 8px 0">Σύνδεση</h2>
+    <div class="muted small">Βάλε email & password για να πάρεις token.</div>
+    <label style="margin-top:8px">Email</label>
+    <input id="loginEmail" placeholder="demo10@gmail.com" value="">
+    <label>Κωδικός</label>
+    <input id="loginPass" type="password" placeholder="••••••">
+    <div class="row" style="justify-content:space-between;margin-top:10px">
+      <div class="small muted" id="loginMsg"></div>
+      <div class="row">
+        <button class="btn secondary" onclick="hideLogin()">Άκυρο</button>
+        <button class="btn" onclick="doLogin()">Σύνδεση</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ------- helpers / state -------
+  const $ = id => document.getElementById(id);
+  const setStatus = (msg, type='info') => { const el=$('statusBox'); el.textContent=msg||''; el.style.color=(type==='err')?'#fecaca':(type==='ok'?'#a7f3d0':'#9ca3af'); };
+  const show = id => { for (const s of ['step1','step2','step3']) $(s).classList.add('hidden'); $(id).classList.remove('hidden'); };
+  const hasToken = () => !!(localStorage.getItem('token')||'');
+
+  let CREDITS=0, PRODUCTS=[], FILTERED=[], SELECTED=null, LAST_PREVIEW_URL=null, FINAL_URL=null, FOCUS_INDEX=-1;
+
+  // ------- login / header actions -------
+  function showLogin(){ $('loginOverlay').style.display='flex'; }
+  function hideLogin(){ $('loginOverlay').style.display='none'; }
+  async function doLogin(){
+    const email=$('loginEmail').value.trim(), password=$('loginPass').value;
+    if(!email||!password){ $('loginMsg').textContent='Συμπλήρωσε email & password'; return; }
+    $('loginMsg').textContent='Σύνδεση...';
+    try{
+      const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||('HTTP '+r.status)); }
+      const j=await r.json();
+      if(!j.access_token) throw new Error('Χωρίς access_token');
+      localStorage.setItem('token', j.access_token);
+      location.reload();
+    }catch(e){ $('loginMsg').textContent='Σφάλμα: '+e.message; }
+  }
+
+  async function refreshCredits(){ try{ const j=await apiGet('/me/credits'); CREDITS=j.credits??CREDITS; $('chipCredits').textContent='Credits: '+CREDITS; $('chipCredits').classList.add('ok'); }catch{ $('chipCredits').textContent='Credits: error'; } }
+  function goSettings(){ try{loadWooIntoForm()}catch(e){} show('step1'); window.scrollTo({top:0,behavior:'smooth'}); }
+  function logout(){ localStorage.removeItem('token'); location.reload(); }
+  async function subscribe(){ const plan=prompt('plan_id:'); if(!plan) return; const j=await apiPost('/me/subscribe',{plan_id:plan}); if(j.checkout_url) location.href=j.checkout_url; }
+  async function buyCredits(){ const pack=prompt('pack_id:'); if(!pack) return; const j=await apiPost('/me/buy-credits',{pack_id:pack}); if(j.checkout_url) location.href=j.checkout_url; }
+  async function cancelSubscription(){ const r=await apiGetRaw('/me/cancel-subscription'); if(r.ok){ const j=await r.json().catch(()=>({})); if(j.portal_url) location.href=j.portal_url; } }
+
+  // ------- API helpers -------
+  async function apiGet(p){ const r=await fetch(p); if(r.status===401) throw new Error('401'); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+  async function apiPost(p,b){ const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); if(r.status===401) throw new Error('401'); if(!r.ok){ let m='HTTP '+r.status; try{const j=await r.json(); if(j.detail)m+=' — '+j.detail;}catch{} throw new Error(m);} return r.json(); }
+  async function apiGetRaw(p){ return fetch(p); }
+
+  // ------- step1 (woo) -------
+  async function loadWooIntoForm(){
+    try{
+      const j=await apiGet('/me/woocommerce-credentials');
+      $('wooUrl').value=j.woocommerce_url||''; $('wooCk').value=j.consumer_key||''; $('wooCs').value=j.consumer_secret||''; $('syncUrl').value=j.sync_url||'';
+      $('wooMsg').textContent = (j.has_credentials?'OK: υπάρχουν κλειδιά.':'Δεν υπάρχουν κλειδιά.');
+    }catch(e){ $('wooMsg').textContent='Σφάλμα φόρτωσης: '+e.message; }
+  }
+  async function saveWoo(){
+    try{
+      const body={ woocommerce_url:$('wooUrl').value||null, consumer_key:$('wooCk').value||null, consumer_secret:$('wooCs').value||null, sync_url:$('syncUrl').value||null };
+      await apiPost('/me/woocommerce-credentials', body);
+      $('wooMsg').textContent='Αποθηκεύτηκαν.';
+    }catch(e){ $('wooMsg').textContent='Σφάλμα: '+e.message; }
+  }
+  async function clearWoo(){
+    try{
+      const body={ woocommerce_url:null, consumer_key:null, consumer_secret:null, sync_url:null };
+      await apiPost('/me/woocommerce-credentials', body);
+      $('wooUrl').value=$('wooCk').value=$('wooCs').value=$('syncUrl').value='';
+      $('wooMsg').textContent='Τα κλειδιά διαγράφηκαν.';
+    }catch(e){ $('wooMsg').textContent='Σφάλμα: '+e.message; }
+  }
+  async function goStep2(){ await loadProducts(); show('step2'); }
+
+  // ------- step2 (products) -------
+  async function syncProducts(){
+    try{ await apiPost('/me/products/sync', {}); await loadProducts(); alert('Sync ολοκληρώθηκε'); }
+    catch(e){ alert('Σφάλμα sync: '+e.message); }
+  }
+  async function loadProducts(){
+    const j=await apiGet('/me/products');
+    PRODUCTS = Array.isArray(j)?j:(j.items||[]);
+    renderCategoryButtons();
+    renderProductListForCategory();
+    $('focusBox').classList.add('hidden');
+  }
+  function uniqueCategories(){
+    const cats=new Set(PRODUCTS.flatMap(p => ((p.categories||'').split(',').map(s=>s.trim())).filter(Boolean)));
+    return Array.from(cats);
+  }
+  function renderCategoryButtons(){
+    const box=$('categorySelectBox'); box.innerHTML='';
+    const cats=uniqueCategories();
+    if(cats.length===0){ box.innerHTML='<div class="muted small" style="padding:6px">Χωρίς κατηγορίες</div>'; return; }
+    cats.forEach((cat,idx)=>{
+      const btn=document.createElement('button');
+      btn.className='category-btn'+(idx===0?' selected':'');
+      btn.textContent=cat;
+      btn.onclick=()=>{ document.querySelectorAll('.category-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); renderProductListForCategory(cat); };
+      box.appendChild(btn);
+    });
+  }
+  function renderProductListForCategory(catOpt){
+    const cat = catOpt ?? (document.querySelector('.category-btn.selected')?.textContent || '');
+    const list=$('productsList'); list.innerHTML='';
+    FILTERED = PRODUCTS.filter(p => {
+      const cats=(p.categories||'').split(',').map(s=>s.trim());
+      return !cat || cats.includes(cat);
+    });
+    if(FILTERED.length===0){ list.innerHTML='<div class="muted">Δεν βρέθηκαν προϊόντα.</div>'; return; }
+    FILTERED.forEach((p,i)=>{
+      const card=document.createElement('div'); card.className='product-card';
+      card.innerHTML = `
+        ${p.image_url ? `<img src="${p.image_url}" alt="">` : `<div style="width:88px;height:88px;background:#0c1a23;border-radius:10px;margin:0 auto 8px"></div>`}
+        <div class="product-title">${escapeHtml(p.name||('ID '+p.id))}</div>
+      `;
+      card.onclick = ()=>focusProduct(i);
+      list.appendChild(card);
+    });
+    $('productsList').style.display='flex';
+  }
+  function focusProduct(idx){
+    if(idx<0||idx>=FILTERED.length) return;
+    FOCUS_INDEX=idx; SELECTED=FILTERED[idx];
+    $('focusInfo').textContent = `Προϊόν ${idx+1} από ${FILTERED.length}`;
+    $('focusTitle').textContent=SELECTED.name||'—';
+    $('focusPrice').textContent=SELECTED.price||'—';
+    $('focusImg').innerHTML = SELECTED.image_url ? `<img src="${SELECTED.image_url}" style="width:100%;height:100%;object-fit:contain;border-radius:8px">` : 'no image';
+    $('productsList').style.display='none';
+    $('focusBox').classList.remove('hidden');
+  }
+  function prevProduct(){ if(FOCUS_INDEX>0) focusProduct(FOCUS_INDEX-1); }
+  function nextProduct(){ if(FOCUS_INDEX<FILTERED.length-1) focusProduct(FOCUS_INDEX+1); }
+  function exitFocus(){ $('focusBox').classList.add('hidden'); $('productsList').style.display='flex'; }
+  function useDemo(){
+    SELECTED = { id:null, name:'Demo Προϊόν', price:'9.99', image_url:null, categories:'Demo' };
+    FILTERED=[SELECTED]; FOCUS_INDEX=0;
+    goStep3();
+  }
+
+  // ------- step3 (preview/commit) -------
+  function fillChosenCard(){
+    $('chosenTitle').textContent=SELECTED?.name||'—';
+    $('chosenPrice').textContent=SELECTED?.price||'—';
+    $('chosenImg').innerHTML = SELECTED?.image_url ? `<img src="${SELECTED.image_url}" style="width:100%;height:100%;object-fit:contain;border-radius:10px">` : 'no image';
+  }
+  function goStep3(){ fillChosenCard(); LAST_PREVIEW_URL=null; FINAL_URL=null; $('finalBox').classList.add('hidden'); $('previewBox').innerHTML='<span class="muted">Καμία προεπισκόπηση</span>'; setStatus(''); show('step3'); }
+  function getBodyForPreview(){
+    return {
+      post_type:'image',
+      mode: $('modeSelect').value,
+      product_id: SELECTED ? SELECTED.id : null,
+      title: SELECTED ? (SELECTED.name||null) : null,
+      price: SELECTED ? (SELECTED.price||null) : null,
+      image_url: SELECTED ? (SELECTED.image_url||null) : null,
+      ratio: $('ratioSelect').value
+    };
+  }
+  async function doPreview(){
+    try{
+      setStatus('Φτιάχνω προεπισκόπηση…');
+      const j=await apiPost('/previews/render', getBodyForPreview());
+      LAST_PREVIEW_URL=j.preview_url; FINAL_URL=null;
+      const src=LAST_PREVIEW_URL+(LAST_PREVIEW_URL.includes('?')?'&':'?')+'t='+Date.now();
+      $('previewBox').innerHTML=`<img src="${src}" style="max-width:100%;height:auto;display:block">`;
+      setStatus('OK: preview έτοιμο','ok');
+      $('btnCommit').disabled = (CREDITS<=0);
+    }catch(e){ setStatus('Σφάλμα preview: '+e.message,'err'); }
+  }
+  async function doCommit(){
+    if(!LAST_PREVIEW_URL) return alert('Πρώτα preview');
+    try{
+      setStatus('Κάνω commit…');
+      const body={ preview_url:LAST_PREVIEW_URL, post_type:'image', product_id: SELECTED?SELECTED.id:null, caption: document.getElementById('captionInput').value||null };
+      const j=await apiPost('/previews/commit', body);
+      CREDITS=j.credits_left??CREDITS; $('chipCredits').textContent='Credits: '+CREDITS;
+      setStatus('OK: δημιουργήθηκε post_id '+j.post_id,'ok');
+      FINAL_URL=(j.media_urls && j.media_urls[0])?j.media_urls[0]:null;
+      if(FINAL_URL){
+        $('finalLink').href=FINAL_URL; $('finalLink').setAttribute('download','autoposter.svg');
+        $('finalBox').classList.remove('hidden');
+      }
+    }catch(e){
+      if(String(e.message).includes('402')){ alert('Δεν υπάρχουν αρκετά credits. Αγόρασε credits ή κάνε subscribe.'); }
+      else setStatus('Σφάλμα commit: '+e.message,'err');
+    }
+  }
+  function copyFinal(){ if(!FINAL_URL) return; const full=location.origin+FINAL_URL; navigator.clipboard.writeText(full).then(()=>alert('Αντιγράφηκε: '+full)); }
+  function shareFinal(){
+    if(!FINAL_URL) return;
+    const full=location.origin+FINAL_URL;
+    if(navigator.share){ navigator.share({title:'Autoposter', text:'Δες το post μου', url:full}).catch(()=>{}); }
+    else{ copyFinal(); }
+  }
+
+  // ------- init -------
+  async function init(){
+    if(!hasToken()){ showLogin(); return; }
+    try{ await refreshCredits(); }catch{}
+    try{ await loadWooIntoForm(); }catch{}
+    show('step1');
+  }
+  init();
+
+  function escapeHtml(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+</script>
+</body>
+</html>

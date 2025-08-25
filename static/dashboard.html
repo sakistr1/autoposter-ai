@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Autoposter — Wizard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Inline favicon για να μη ζητά /favicon.ico -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🅰️%3C/text%3E%3C/svg%3E">
+<style>
+  :root{--bg:#0b1620;--panel:#0f1f2b;--muted:#9aa4af;--green:#10b981;--red:#ef4444}
+  body{margin:0;background:var(--bg);color:#e5e7eb;font:14px system-ui,-apple-system,Segoe UI,Roboto}
+  .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+  h1{font-size:18px;margin:0 0 12px 0}
+  .card{background:var(--panel);border-radius:12px;padding:16px;margin:12px 0;border:1px solid #1f2c38}
+  .row{display:flex;gap:12px;align-items:center}
+  .row > *{flex:1}
+  input,select,button,textarea{border-radius:8px;border:1px solid #293745;background:#0c1a23;color:#e5e7eb;padding:10px}
+  button{background:#1f6feb;border-color:#1f6feb;cursor:pointer}
+  button.secondary{background:#0c1a23;border:1px solid #334155}
+  button.danger{background:#b91c1c;border-color:#b91c1c}
+  .chip{display:inline-block;padding:4px 10px;background:#0c1a23;border-radius:999px;border:1px solid #334155}
+  .muted{color:#9aa4af}
+  .hidden{display:none}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .product-card{border:1px solid #233140;border-radius:10px;padding:10px;text-align:center;background:#0c1a23}
+  .product-title{font-weight:600;margin-top:8px}
+
+  .preview-card{
+    background:#0c1a23;border:1px solid #233140;border-radius:10px;
+    height:420px; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; position:relative; padding:0;
+  }
+  #previewBox{width:100%;height:100%}
+  #previewBox img,#previewBox svg{max-width:100%;max-height:100%;object-fit:contain;display:block}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+
+  #history-panel{margin-top:16px;padding:12px;border:1px solid #e5e7eb33;border-radius:12px;background:#0c1a23;color:#e5e7eb}
+  .history-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .history-card{border:1px solid #e5e7eb22;border-radius:10px;padding:8px;background:#0c1a23}
+  .history-card .thumb{display:block;width:100%;height:220px;background:#0b1620;border:1px solid #233140;border-radius:8px;overflow:hidden}
+  .history-card img{width:100%;height:100%;object-fit:contain;display:block}
+  .topbar{display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="secondary" onclick="subscribe()">Subscribe</button>
+    <button class="secondary" onclick="buyCredits()">Buy credits</button>
+    <button class="secondary" onclick="cancelSub()">Cancel sub</button>
+    <span class="chip" id="chipCredits" title="Κλικ για ανανέωση" onclick="refreshCredits()" style="cursor:pointer">Credits: —</span>
+    <button class="secondary" onclick="logout()">Αποσύνδεση</button>
+  </div>
+
+  <h1>Autoposter — Wizard</h1>
+
+  <!-- Βήμα 1 -->
+  <div id="step1" class="card">
+    <div><b>Βήμα 1: WooCommerce κλειδιά</b></div>
+    <div class="row" style="margin-top:10px">
+      <input id="wooUrl" placeholder="https://shop.example.com">
+      <input id="syncUrl" placeholder="https://…/wp-json/… (optional)">
+    </div>
+    <div class="row">
+      <input id="ck" placeholder="ck_xxxxx">
+      <input id="cs" placeholder="cs_xxxxx">
+    </div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="secondary" onclick="loadWooIntoForm()">Φόρτωση</button>
+      <button class="secondary" onclick="saveWoo()">Αποθήκευση</button>
+      <button class="danger" onclick="clearWoo()">Διαγραφή κλειδιών</button>
+      <button onclick="goStep2()">Συνέχεια →</button>
+    </div>
+
+    <div id="history-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">
+          Ιστορικό (τελευταία 10)
+          <span class="muted" id="historyCount"></span>
+        </h3>
+        <button class="secondary" onclick="refreshHistory()">Ανανέωση</button>
+      </div>
+      <div id="historyEmpty" class="muted" style="margin-top:8px;display:none">Δεν υπάρχουν posts ακόμα.</div>
+      <div id="historyGrid" class="history-grid"></div>
+    </div>
+  </div>
+
+  <!-- Βήμα 2 -->
+  <div id="step2" class="card hidden">
+    <div class="row" style="justify-content:space-between">
+      <div><b>Βήμα 2: Επιλογή προϊόντος</b></div>
+      <div>
+        <button class="secondary" onclick="useDemo()">[DEV] Demo προϊόν</button>
+        <button onclick="goStep3()">Συνέχεια →</button>
+      </div>
+    </div>
+    <div id="productsList" class="grid"></div>
+    <div id="focusBox" class="hidden">
+      <div class="row" style="justify-content:space-between">
+        <div id="focusInfo" class="muted"></div>
+        <div>
+          <button class="secondary" onclick="prevProduct()">◀</button>
+          <button class="secondary" onclick="nextProduct()">▶</button>
+          <button onclick="exitFocus()">Πίσω στη λίστα</button>
+        </div>
+      </div>
+      <div class="grid">
+        <div id="focusImg" class="product-card" style="height:300px">no image</div>
+        <div>
+          <div class="muted">Τίτλος</div>
+          <div id="focusTitle" style="font-weight:700;margin-bottom:8px">—</div>
+          <div class="muted">Τιμή</div>
+          <div id="focusPrice" style="margin-bottom:8px">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Βήμα 3 -->
+  <div id="step3" class="card hidden">
+    <div><b>Βήμα 3: Σύνθεση & Preview</b></div>
+    <div class="row" style="margin-top:8px">
+      <select id="modeSelect">
+        <option value="normal">normal</option>
+        <option value="clean">clean</option>
+        <option value="promo">promo</option>
+      </select>
+      <select id="ratioSelect">
+        <option value="4:5">4:5</option>
+        <option value="1:1">1:1</option>
+        <option value="9:16">9:16</option>
+      </select>
+      <input id="captionInput" placeholder="Caption (προαιρετικό)">
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <div style="flex:1">
+        <label>Brand color</label>
+        <div class="row">
+          <input id="brandColorHex" placeholder="#0fbf91" value="#0fbf91">
+          <input id="brandColorPicker" type="color" value="#0fbf91" style="max-width:60px">
+        </div>
+      </div>
+      <div style="flex:1">
+        <label>Logo</label>
+        <div class="row">
+          <input id="logoUrl" placeholder="/static/uploads/… ή http(s)://…">
+          <input id="logoFile" type="file" accept="image/*">
+          <button class="secondary" onclick="uploadLogo()">Upload</button>
+          <button class="danger" onclick="clearLogo()">X</button>
+        </div>
+        <div id="logoThumb" class="muted" style="margin-top:6px">—</div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="product-card" style="height:280px">
+        <div id="chosenImg" style="height:200px">no image</div>
+        <div id="chosenTitle" class="product-title">—</div>
+        <div id="chosenPrice" class="muted">—</div>
+      </div>
+      <div>
+        <div class="preview-card">
+          <div id="previewBox"><span class="muted">Καμία προεπισκόπηση</span></div>
+        </div>
+        <div class="actions">
+          <button class="secondary" onclick="backToHistory()">Πίσω στο ιστορικό</button>
+          <button class="secondary" onclick="doPreview()">Preview</button>
+          <button id="btnCommit" onclick="doCommit()">Ολοκλήρωση & χρέωση</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="finalBox" class="hidden" style="margin-top:10px">
+      <a id="finalLink" href="#" download="autoposter.svg">Download SVG</a>
+      <button class="secondary" onclick="copyFinal()">Copy link</button>
+      <button class="secondary" onclick="shareFinal()">Share</button>
+    </div>
+
+    <div id="status" class="muted" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<script>
+/* ===== Auth helpers ===== */
+const TOKEN_KEY = 'autoposter_token';
+const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+const redirectToLogin = () => {
+  const next = location.pathname + location.search;
+  location.href = '/auth.html?next=' + encodeURIComponent(next);
+};
+async function api(path, opts = {}) {
+  const headers = new Headers(opts.headers || {});
+  const tok = getToken();
+  if (tok) headers.set('Authorization', `Bearer ${tok}`);
+  const res = await fetch(path, { ...opts, headers });
+  if (res.status === 401) { clearToken(); redirectToLogin(); throw new Error('Unauthorized'); }
+  return res;
+}
+const apiGet = async (p)=> (await api(p)).json();
+const apiPost = async (p,b)=> (await api(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})})).json();
+const apiPostForm = async (p,fd)=> (await api(p,{method:'POST',body:fd})).json();
+
+function logout(){ clearToken(); location.href='/auth.html'; }
+
+/* === helpers === */
+function toAbs(u){
+  if(!u) return '';
+  if(/^https?:\/\//i.test(u)) return u;
+  const base = location.origin.replace(/\/$/,'');
+  return u.startsWith('/') ? base+u : base+'/'+u;
+}
+const $=(id)=>document.getElementById(id);
+function show(id){ ['step1','step2','step3'].forEach(x=>$(x).classList.add('hidden')); $(id).classList.remove('hidden'); }
+function setStatus(s,cls){ const el=$('status'); el.textContent=s||''; el.style.color=cls==='err'?'#f87171':(cls==='ok'?'#34d399':'');}
+function escapeHtml(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+/* ===== Credits & Woo ===== */
+async function refreshCredits(){
+  try{
+    const j=await apiGet('/me/credits');
+    $('chipCredits').textContent='Credits: '+(j.credits??'—');
+  }catch{}
+}
+async function buyCredits(){ try{ const j=await apiPost('/me/buy-credits',{pack:'starter'}); alert(j.detail||'OK'); refreshCredits(); }catch(e){ /* σιωπή */ } }
+async function subscribe(){ try{ const j=await apiPost('/me/subscribe',{plan:'pro'}); alert(j.detail||'OK'); }catch(e){ /* σιωπή */ } }
+async function cancelSub(){
+  try{
+    let r=await api('/me/cancel-subscription',{method:'GET'});
+    if(r.status===405) r=await api('/me/cancel-subscription',{method:'POST'});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.detail||('HTTP '+r.status));
+    alert(j.detail||'OK');
+  }catch(e){ /* σιωπή */ }
+}
+async function loadWooIntoForm(){
+  const j = await apiGet('/me/woocommerce-credentials').catch(()=>({}));
+  $('wooUrl').value=j?.url||''; $('ck').value=j?.ck||''; $('cs').value=j?.cs||''; $('syncUrl').value=j?.sync_url||'';
+}
+async function saveWoo(){
+  await apiPost('/me/woocommerce-credentials', {url:$('wooUrl').value||null, ck:$('ck').value||null, cs:$('cs').value||null, sync_url:$('syncUrl').value||null}).catch(()=>{});
+}
+function clearWoo(){ $('wooUrl').value='';$('ck').value='';$('cs').value='';$('syncUrl').value=''; }
+
+/* ===== Βήματα ===== */
+function goStep2(){ show('step2'); renderProductsDemo(); }
+function goStep3(){ fillChosenCard(); LAST_PREVIEW_URL=null; FINAL_URL=null; $('finalBox').classList.add('hidden'); $('previewBox').innerHTML='<span class="muted">Καμία προεπισκόπηση</span>'; setStatus(''); show('step3'); }
+function backToHistory(){ show('step1'); setTimeout(()=>document.getElementById('history-panel').scrollIntoView({behavior:'smooth'}),50); }
+
+let PRODUCTS=[], FILTERED=[], SELECTED=null, FOCUS_INDEX=0, LAST_PREVIEW_URL=null, FINAL_URL=null;
+
+/* ===== Products (Demo) ===== */
+function renderProductsDemo(){
+  PRODUCTS = [
+    {id:1, name:'Demo Προϊόν', price:'€9.99', image_url:'https://picsum.photos/seed/demo/800/800'},
+    {id:2, name:'Smartwatch X', price:'€59.90', image_url:'https://picsum.photos/id/1062/1200/1600'}
+  ];
+  FILTERED = PRODUCTS.slice();
+  const list=$('productsList'); list.innerHTML='';
+  FILTERED.forEach((p,i)=>{
+    const card=document.createElement('div'); card.className='product-card';
+    card.innerHTML = (p.image_url?`<img src="${p.image_url}" alt="" style="width:100%;height:180px;object-fit:cover;border-radius:8px">`:'<div style="height:180px"></div>')+
+                     `<div class="product-title">${escapeHtml(p.name)}</div><div class="muted">${p.price||'—'}</div>`;
+    card.onclick = ()=>focusProduct(i); list.appendChild(card);
+  });
+}
+function focusProduct(i){
+  FOCUS_INDEX=i; SELECTED=FILTERED[i];
+  $('focusInfo').textContent = `Προϊόν ${i+1} από ${FILTERED.length}`;
+  $('focusTitle').textContent=SELECTED.name||'—';
+  $('focusPrice').textContent=SELECTED.price||'—';
+  $('focusImg').innerHTML = SELECTED.image_url ? `<img src="${SELECTED.image_url}" style="width:100%;height:100%;object-fit:contain;border-radius:8px">` : 'no image';
+  $('productsList').style.display='none'; $('focusBox').classList.remove('hidden');
+}
+function prevProduct(){ if(FOCUS_INDEX>0) focusProduct(FOCUS_INDEX-1); }
+function nextProduct(){ if(FOCUS_INDEX<FILTERED.length-1) focusProduct(FOCUS_INDEX+1); }
+function exitFocus(){ $('focusBox').classList.add('hidden'); $('productsList').style.display='grid'; }
+function useDemo(){ SELECTED={id:null,name:'Demo Προϊόν',price:'9.99',image_url:null}; FILTERED=[SELECTED]; FOCUS_INDEX=0; goStep3(); }
+
+function fillChosenCard(){
+  $('chosenTitle').textContent=SELECTED?.name||'—';
+  $('chosenPrice').textContent=SELECTED?.price||'—';
+  $('chosenImg').innerHTML = SELECTED?.image_url ? `<img src="${SELECTED.image_url}" style="width:100%;height:100%;object-fit:contain;border-radius:10px">` : 'no image';
+}
+
+/* ===== Brand color sync ===== */
+(function syncBrand(){
+  const bc=$('brandColorHex'), bh=$('brandColorPicker');
+  function sync(){ const v=bc.value.trim(); if(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) bh.value=v; }
+  bc.addEventListener('input', sync); bh.addEventListener('input', ()=>{ bc.value = bh.value; });
+})();
+
+/* ===== Logo upload ===== */
+async function uploadLogo(){
+  const f=$('logoFile').files[0]; if(!f){alert('Διάλεξε αρχείο');return}
+  const fd=new FormData(); fd.append('file', f);
+  setStatus('Ανέβασμα λογότυπου…');
+  try{
+    let j;
+    try { j = await apiPostForm('/upload_logo', fd); }
+    catch { try { j = await apiPostForm('/me/upload_logo', fd); }
+            catch { j = await apiPostForm('/me/upload-logo', fd); } }
+    $('logoUrl').value=toAbs(j.url);
+    $('logoThumb').innerHTML=`<img src="${j.url}" alt="logo" style="max-height:60px">`;
+    setStatus('Λογότυπο ανέβηκε','ok');
+  }catch(err){ setStatus('', ''); /* σιωπή */ }
+}
+function clearLogo(){ $('logoUrl').value=''; $('logoFile').value=''; $('logoThumb').textContent='—'; }
+
+/* ===== Preview / Commit ===== */
+function waitImg(src, tries=20, delay=200){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=> resolve();
+    img.onerror = ()=> {
+      if(tries<=0) return reject(new Error('preview 404'));
+      setTimeout(()=> waitImg(src, tries-1, delay).then(resolve).catch(reject), delay);
+    };
+    img.src = src;
+  });
+}
+
+async function doPreview(){
+  try{
+    setStatus('Φτιάχνω preview…');
+    const body = {
+      post_type: 'image',
+      mode: (document.getElementById('modeSelect')||{}).value || 'normal',
+      ratio: (document.getElementById('ratioSelect')||{}).value || '4:5',
+      brand_color: (document.getElementById('brandColorHex')||{}).value || null,
+      logo_url: toAbs((document.getElementById('logoUrl')||{}).value || ''),
+      product_id: (typeof SELECTED!=='undefined' && SELECTED && SELECTED.id) ? SELECTED.id : null,
+      title:      (typeof SELECTED!=='undefined' && SELECTED && SELECTED.name) ? SELECTED.name : null,
+      price:      (typeof SELECTED!=='undefined' && SELECTED && SELECTED.price) ? SELECTED.price : null,
+      image_url:  (typeof SELECTED!=='undefined' && SELECTED && SELECTED.image_url) ? SELECTED.image_url : null
+    };
+
+    const r = await fetch('/previews/render', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', ...(getToken()?{Authorization:`Bearer ${getToken()}`}:{}) },
+      body: JSON.stringify(body)
+    });
+    if(r.status === 401){ clearToken(); return redirectToLogin(); }
+    if(!r.ok){ throw new Error('render error'); }
+    const j = await r.json();
+
+    let purl = j.preview_url || (j.preview_id ? `/static/generated/${j.preview_id}.png` : '');
+    if(!purl) throw new Error('no preview url');
+    const src = toAbs(purl) + (purl.includes('?')?'&':'?') + 't=' + Date.now();
+
+    // περιμένουμε λίγο χωρίς να εμφανίζουμε error αν αργήσει
+    try { await waitImg(src, 20, 200); } catch(_) {}
+
+    LAST_PREVIEW_URL = purl;
+
+    const box = document.getElementById('previewBox') || document.getElementById('preview');
+    if(box){
+      box.innerHTML = `<img src="${src}" alt="preview" style="max-width:100%;max-height:100%;display:block;object-fit:contain">`;
+    }
+    setStatus('OK: preview έτοιμο','ok');
+  }catch(err){
+    setStatus('', ''); // χωρίς κόκκινα μηνύματα
+    console.debug('[preview silent]', err?.message||err);
+  }
+}
+
+async function doCommit(){
+  if(!LAST_PREVIEW_URL) return alert('Πρώτα preview');
+  try{
+    setStatus('Κάνω commit…');
+
+    const m = String(LAST_PREVIEW_URL).match(/\/(prev_[^\/\?]+)\.(png|jpe?g|webp|svg)/i);
+    const previewId = m ? m[1] : null;
+
+    const body={
+      preview_id: previewId,
+      urls: [ toAbs(LAST_PREVIEW_URL) ],
+      post_type:'image',
+      product_id: SELECTED?SELECTED.id:null,
+      caption: $('captionInput').value||null
+    };
+
+    const j = await apiPost('/previews/commit', body);
+
+    $('chipCredits').textContent='Credits: '+(j.credits_left ?? j.credits ?? '—');
+
+    const first = (j.urls && j.urls[0]) || null;
+    if(first){
+      $('finalLink').href=first; $('finalLink').setAttribute('download','autoposter.svg');
+      $('finalBox').classList.remove('hidden');
+    }
+    setStatus('OK: δημιουργήθηκε post_id '+(j.post_id??'—'),'ok');
+    document.dispatchEvent(new CustomEvent('post-committed'));
+  }catch(e){
+    setStatus('', ''); // σιωπή
+    console.debug('[commit silent]', e?.message||e);
+  }
+}
+function copyFinal(){ if(!FINAL_URL) return; const full=location.origin+FINAL_URL; navigator.clipboard.writeText(full).then(()=>alert('Αντιγράφηκε: '+full)); }
+function shareFinal(){ if(!FINAL_URL) return; const full=location.origin+FINAL_URL; if(navigator.share){ navigator.share({title:'Autoposter', text:'Δες το post μου', url:full}).catch(()=>{});} else { copyFinal(); }}
+
+/* ===== Ιστορικό ===== */
+async function refreshHistory(){
+  try{
+    const r = await fetch('/previews/committed?limit=10', { headers: getToken()?{Authorization:`Bearer ${getToken()}`}:{}} );
+    if(r.status === 401){ clearToken(); return redirectToLogin(); }
+    const j = await r.json().catch(()=>({items:[]}));
+    const items = Array.isArray(j?.items) ? j.items : (Array.isArray(j)?j:[]);
+    const grid  = document.getElementById('historyGrid');
+    const empty = document.getElementById('historyEmpty');
+    const cnt   = document.getElementById('historyCount');
+
+    if(!grid) return;
+
+    grid.innerHTML = '';
+    if(cnt) cnt.textContent = items.length ? `— ${items.length}` : '';
+    if(!items.length){ if(empty) empty.style.display='block'; return; }
+    if(empty) empty.style.display='none';
+
+    items.forEach(p=>{
+      const url = (p.urls && p.urls[0]) || p.url || '';
+      const el  = document.createElement('div');
+      el.className = 'history-card';
+      el.innerHTML = `
+        <a class="thumb" href="${toAbs(url)}" target="_blank">
+          ${url?`<img src="${toAbs(url)}" alt="" onerror="this.closest('.history-card').remove()">`:''}
+        </a>
+        <div class="muted" style="margin-top:6px">${p.preview_id||''}</div>`;
+      grid.appendChild(el);
+    });
+  }catch(e){
+    // σιωπή
+    console.debug('[history silent]', e?.message||e);
+  }
+}
+document.addEventListener('post-committed', refreshHistory);
+
+/* ===== Init ===== */
+(async function init(){
+  if(!getToken()) { redirectToLogin(); return; }
+  await refreshCredits();
+  await loadWooIntoForm();
+  show('step1');
+  refreshHistory();
+})();
+</script>
+</body>
+</html>

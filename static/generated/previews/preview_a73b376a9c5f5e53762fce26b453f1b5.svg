@@ -1,0 +1,43 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0b1620"/>
+      <stop offset="1" stop-color="#0fbf91"/>
+    </linearGradient>
+    
+    <clipPath id="clip_img">
+      <rect x="40" y="140" rx="40" ry="40" width="600" height="1070"/>
+    </clipPath>
+    
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#g)"/>
+
+  
+
+  
+  <g clip-path="url(#clip_img)">
+    <image href="https://picsum.photos/id/1062/1500/2000" x="40" y="140" width="600" height="1070"
+           preserveAspectRatio="xMidYMid slice"/>
+  </g>
+  
+
+  
+  <g font-family="'Noto Sans','Segoe UI',sans-serif" font-size="48" fill="#ffffff" font-weight="700">
+    
+    <text x="680" y="260">t</text>
+    
+  </g>
+  
+
+  
+  <g font-family="'Noto Sans','Segoe UI',sans-serif" font-size="56" fill="#22c55e" font-weight="800">
+    
+    <text x="680" y="700">€1</text>
+    
+  </g>
+  
+
+  
+</svg>

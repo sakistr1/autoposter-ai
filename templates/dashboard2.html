@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AutoPoster — Wizard v2 (Pro)</title>
+  <style>
+    :root{
+      --bg:#0b1020;--panel:#0f1522;--muted:#9bb3ff;--fg:#e6ecff;
+      --line:#27314a;--btn:#2a66ff;--btn-2:#1e2a48;--ok:#79ff9f;--err:#ff8080;
+    }
+    body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Arial;margin:0}
+    .apw2-fab{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+      background:var(--btn);color:#fff;border:0;padding:10px 16px;border-radius:999px;
+      font-weight:600;box-shadow:0 8px 18px rgba(0,0,0,.25);z-index:9999;cursor:pointer}
+    .apw2-modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;z-index:10000}
+    .apw2-dialog{background:var(--panel);color:var(--fg);width:min(980px,94vw);
+      margin:5vh auto;border-radius:14px;padding:16px 18px;box-shadow:0 10px 32px rgba(0,0,0,.4)}
+    .apw2-row{display:flex;gap:12px;align-items:center;margin:10px 0}
+    .apw2-col{display:flex;flex-direction:column;gap:10px}
+    .apw2-row input,.apw2-row select,.apw2-row textarea{background:#0b1020;border:1px solid var(--line);
+      color:var(--fg);border-radius:10px;padding:8px 10px;flex:1}
+    .apw2-btn{background:var(--btn-2);color:#fff;border:1px solid #2f436b;border-radius:10px;padding:10px 14px;cursor:pointer}
+    .apw2-btn.primary{background:var(--btn);border-color:var(--btn)}
+    .apw2-btn[disabled]{opacity:.6;cursor:not-allowed}
+    .apw2-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .apw2-preview{min-height:260px;border:1px dashed var(--line);border-radius:12px;padding:10px;display:flex;align-items:center;justify-content:center}
+    .apw2-preview img,.apw2-preview video{max-width:100%;max-height:100%;border-radius:10px}
+    .apw2-muted{opacity:.8;font-size:.9em;color:var(--muted)}
+    .apw2-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .apw2-final{display:none;gap:10px;align-items:center;margin-top:8px}
+    .apw2-sep{height:1px;background:var(--line);margin:8px 0}
+    .apw2-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .apw2-head .title{font-weight:700}
+    .apw2-note{font-size:.9em;color:var(--muted)}
+    .hide{display:none !important}
+  </style>
+</head>
+<body>
+  <div style="padding:16px;opacity:.85">
+    <div>Wizard v2 (Pro). Πάτα κάτω: <b>+ Νέο Post (v2)</b></div>
+  </div>
+
+  <div id="apw2" class="apw2-modal" aria-hidden="true">
+    <div class="apw2-dialog">
+      <div class="apw2-head">
+        <div class="title">Wizard v2</div>
+        <div class="apw2-actions">
+          <button class="apw2-btn" id="apw2Cancel">Ακύρωση</button>
+          <button class="apw2-btn primary" id="apw2Close">Κλείσιμο</button>
+        </div>
+      </div>
+
+      <div class="apw2-grid">
+        <!-- LEFT: Controls -->
+        <div class="apw2-col">
+          <div class="apw2-row">
+            <label style="min-width:130px">Token</label>
+            <input id="apw2Token" placeholder="Bearer JWT (άστο κενό αν έχει Set Token)">
+          </div>
+
+          <div class="apw2-row">
+            <label style="min-width:130px">Προϊόν (demo)</label>
+            <select id="apw2ProductSel" style="flex:1">
+              <option value="84">#84 — Demo προϊόν</option>
+              <option value="85">#85 — Demo προϊόν</option>
+              <option value="86">#86 — Demo προϊόν</option>
+              <option value="__custom">Άλλο…</option>
+            </select>
+            <input id="apw2ProductCustom" class="hide" placeholder="Π.χ. 84" style="max-width:130px">
+          </div>
+
+          <div class="apw2-row">
+            <label style="min-width:130px">Template</label>
+            <select id="apw2TplSel" style="flex:1"><option value="">(χωρίς)</option></select>
+            <button class="apw2-btn" id="apw2TplRefresh" title="Ανανέωση templates">↻</button>
+          </div>
+
+          <div class="apw2-row">
+            <label style="min-width:130px">Post type</label>
+            <select id="apw2Type"><option value="image">image</option><option value="video">video</option></select>
+            <label style="min-width:70px">Tone</label>
+            <select id="apw2Tone"><option>Κλασικό</option><option>Προωθητικό</option><option>Χιουμοριστικό</option></select>
+          </div>
+
+          <div class="apw2-row"><label style="min-width:130px">Τίτλος</label><input id="apw2Title" placeholder="Τίτλος…"></div>
+          <div class="apw2-row"><label style="min-width:130px">Τιμή</label><input id="apw2Price" placeholder="π.χ. 29.90"></div>
+          <div class="apw2-row"><label style="min-width:130px">CTA</label><input id="apw2CTA" value="Παράγγειλε τώρα"></div>
+
+          <div class="apw2-sep"></div>
+          <div class="apw2-actions">
+            <button class="apw2-btn primary" id="apw2Render">Δημιουργία Προεπισκόπησης</button>
+            <button class="apw2-btn" id="apw2Commit" disabled>Ολοκλήρωση & Χρέωση</button>
+          </div>
+          <div class="apw2-muted" id="apw2Status"></div>
+
+          <div class="apw2-final" id="apw2Final">
+            <a id="apw2Download" class="apw2-btn" download="post.png">Κατέβασμα</a>
+            <button class="apw2-btn" id="apw2Copy">Αντιγραφή συνδέσμου</button>
+            <button class="apw2-btn" id="apw2ShareX">Κοινοποίηση σε X</button>
+            <button class="apw2-btn" id="apw2ShareFB">Κοινοποίηση σε Facebook</button>
+            <span class="apw2-note">Instagram: κατέβασε την εικόνα και ανέβασέ την.</span>
+          </div>
+        </div>
+
+        <!-- RIGHT: Preview -->
+        <div>
+          <div class="apw2-preview" id="apw2Wrap"><span class="apw2-muted">Η προεπισκόπηση θα εμφανιστεί εδώ</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="apw2-fab" id="apw2Open">+ Νέο Post (v2)</button>
+
+  <script>
+  (function(){
+    if (window.__apw2) return; window.__apw2=true;
+    const $ = s => document.querySelector(s);
+    const W = { preview:null, urls:[] };
+
+    // --- helpers
+    function setStatus(msg, cls){
+      const el=$('#apw2Status'); el.textContent=msg||'';
+      el.style.color = cls==='err'?'var(--err)':cls==='ok'?'var(--ok)':'var(--muted)';
+    }
+    function getToken(){
+      try{ if (typeof window.getToken==='function'){ const t=window.getToken(); if (t) return t; } }catch(_){}
+      const t = ($('#apw2Token').value||'').trim();
+      return t || (localStorage.token||localStorage.jwt||'');
+    }
+    function extractUrls(obj){
+      try{
+        if (!obj) return [];
+        const out=[], add=u=>{ if(!u) return; if(Array.isArray(u)) u.forEach(add); else if(typeof u==='string') out.push(u); };
+        add(obj.urls); add(obj.urls_json); add(obj.images); add(obj.preview_images);
+        add(obj.preview_url); add(obj.image_url); add(obj.final_url); add(obj.static_path); add(obj.path); add(obj.output);
+        if (obj.file) out.push('/static/generated/'+String(obj.file).replace(/^\/+/,'')); // backend σου
+        const seen=new Set(); return out.filter(Boolean).filter(u=>!seen.has(u)&&seen.add(u));
+      }catch(e){ return []; }
+    }
+    function renderUrls(urls){
+      const wrap=$('#apw2Wrap'); wrap.innerHTML='';
+      if (!urls.length){ wrap.innerHTML='<span class="apw2-muted">Δεν ήρθαν URLs από /previews/render.</span>'; return; }
+      urls.forEach(u=>{
+        if (/\\.mp4(\\?|$)/i.test(String(u))){ const v=document.createElement('video'); v.src=u; v.controls=true; v.playsInline=true; wrap.appendChild(v); }
+        else { const img=new Image(); img.loading='lazy'; img.src=u; wrap.appendChild(img); }
+      });
+    }
+    function payloadFromUI(){
+      const sel = $('#apw2ProductSel').value;
+      const pid = (sel==='__custom' ? Number($('#apw2ProductCustom').value||0)||null : Number(sel));
+      return {
+        product_id: pid,
+        post_type: ($('#apw2Type').value||'image'),
+        tone: $('#apw2Tone').value||'Κλασικό',
+        template_key: ($('#apw2TplSel').value||'') || null,
+        text: { title: $('#apw2Title').value||'', price: $('#apw2Price').value||'', cta: $('#apw2CTA').value||'' },
+        extras: []
+      };
+    }
+    async function refreshTemplates(){
+      try{
+        const res = await fetch('/tengine/templates');
+        if (!res.ok){ setStatus('Templates: HTTP '+res.status, 'err'); return; }
+        const list = await res.json();
+        const sel = $('#apw2TplSel'); const cur = sel.value;
+        sel.innerHTML = '<option value=\"\">(χωρίς)</option>' + (list||[]).map(x=>`<option value=\"${x.key||x.name||''}\">${x.key||x.name}</option>`).join('');
+        if ([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+        setStatus('Templates OK', 'ok');
+      }catch(e){ setStatus('Templates: '+e.message, 'err'); }
+    }
+
+    // --- actions
+    async function doRender(){
+      const t = getToken(); if (!t){ setStatus('Βάλε token (Set Token).', 'err'); return; }
+      const payload = payloadFromUI();
+      if (!payload.product_id){ setStatus('Δώσε Product ID.', 'err'); return; }
+      setStatus('Render…');
+      $('#apw2Render').disabled = true;
+      try{
+        const res = await fetch('/previews/render', {
+          method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP '+res.status+': '+await res.text());
+        const data = await res.json();
+        W.preview = data; W.urls = extractUrls(data);
+        renderUrls(W.urls);
+        $('#apw2Commit').disabled = !data.preview_id;
+        setStatus('OK', 'ok');
+      }catch(err){
+        setStatus(err.message, 'err');
+      }finally{
+        $('#apw2Render').disabled = false;
+      }
+    }
+    async function doCommit(){
+      const t = getToken(); if (!t){ setStatus('Βάλε token.', 'err'); return; }
+      if (!W.preview || !W.preview.preview_id){ setStatus('Δεν υπάρχει preview για commit.', 'err'); return; }
+      setStatus('Commit…');
+      $('#apw2Commit').disabled = true;
+      try{
+        const res = await fetch('/previews/commit', {
+          method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},
+          body: JSON.stringify({ preview_id: W.preview.preview_id, urls: (W.urls||[]) })
+        });
+        if (!res.ok) throw new Error('HTTP '+res.status+': '+await res.text());
+        setStatus('Ολοκλήρωση & Χρέωση OK', 'ok');
+        const url = (W.urls&&W.urls[0])||null;
+        if (url){
+          const d=$('#apw2Download'); d.href=url; d.style.pointerEvents='auto';
+        }
+        $('#apw2Final').style.display='flex';
+      }catch(err){
+        setStatus(err.message, 'err');
+      }finally{
+        $('#apw2Commit').disabled = false;
+      }
+    }
+    function doCancel(){
+      W.preview=null; W.urls=[];
+      $('#apw2Wrap').innerHTML='<span class=\"apw2-muted\">Η προεπισκόπηση θα εμφανιστεί εδώ</span>';
+      $('#apw2Final').style.display='none';
+      setStatus('Ακυρώθηκε.');
+    }
+    async function copyLink(){
+      const url = (W.urls&&W.urls[0])||''; if (!url) return setStatus('Δεν υπάρχει URL.', 'err');
+      try{ await navigator.clipboard.writeText(url); setStatus('Αντιγράφηκε.', 'ok'); }catch(e){ setStatus('Αποτυχία αντιγραφής.', 'err'); }
+    }
+    function shareX(){
+      const url = (W.urls&&W.urls[0])||''; if (!url) return;
+      const text = encodeURIComponent('Νέο post');
+      const href = 'https://twitter.com/intent/tweet?text='+text+'&url='+encodeURIComponent(url);
+      window.open(href, '_blank', 'noopener');
+    }
+    function shareFB(){
+      const url = (W.urls&&W.urls[0])||''; if (!url) return;
+      const href = 'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url);
+      window.open(href, '_blank', 'noopener');
+    }
+
+    // --- bindings
+    $('#apw2Open').addEventListener('click', ()=>{ $('#apw2').style.display='block'; $('#apw2ProductSel').focus(); setStatus(''); refreshTemplates(); });
+    $('#apw2Close').addEventListener('click', ()=>{ $('#apw2').style.display='none'; });
+    $('#apw2Cancel').addEventListener('click', doCancel);
+    $('#apw2Render').addEventListener('click', doRender);
+    $('#apw2Commit').addEventListener('click', doCommit);
+    $('#apw2TplRefresh').addEventListener('click', refreshTemplates);
+    $('#apw2Copy').addEventListener('click', copyLink);
+    $('#apw2ShareX').addEventListener('click', shareX);
+    $('#apw2ShareFB').addEventListener('click', shareFB);
+
+    $('#apw2ProductSel').addEventListener('change', (e)=>{
+      const v=e.target.value, custom=(v==='__custom');
+      const el=$('#apw2ProductCustom'); el.classList.toggle('hide', !custom);
+      if (custom) el.focus();
+    });
+
+    console.log('[apw2-pro] ready');
+  })();
+  </script>
+</body>
+</html>

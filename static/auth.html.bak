@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <title>Σύνδεση</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>body{font-family:system-ui,Arial;margin:0;display:grid;place-items:center;height:100vh;background:#0f172a;color:#e2e8f0}
+  .card{background:#0b1220;border:1px solid #1f2937;border-radius:14px;padding:24px;min-width:320px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  input,button{width:100%;padding:12px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#e2e8f0}
+  .row{margin:10px 0}
+  button{cursor:pointer}
+  .muted{opacity:.7;font-size:12px;margin-top:6px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Σύνδεση</h2>
+    <div class="row"><input id="email" type="email" placeholder="email" value="demo10@gmail.com"/></div>
+    <div class="row"><input id="password" type="password" placeholder="password" value="demo10"/></div>
+    <div class="row"><button id="login">Login</button></div>
+    <div id="msg" class="muted"></div>
+  </div>
+<script>
+document.getElementById('login').onclick = async () => {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const r = await fetch('/login', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email, password})});
+  const j = await r.json();
+  if (r.ok) {
+    localStorage.setItem('token', j.access_token);
+    document.getElementById('msg').innerText = 'OK — πήραμε token';
+  } else {
+    document.getElementById('msg').innerText = 'Σφάλμα: ' + (j.detail || r.statusText);
+  }
+};
+</script>
+</body>
+</html>

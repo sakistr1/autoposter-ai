@@ -1,0 +1,18 @@
+{
+  "ok": false,
+  "step": "commit",
+  "title": "Test Product",
+  "ratio": "1:1",
+  "status": "429",
+  "preview_url": "/static/generated/previews/preview_09aa77d93777c2beb4bd5bbf20d8c430.svg",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for commit (limit=20/3600s)\"}"
+}
+{
+  "ok": false,
+  "step": "commit",
+  "title": "Test Product",
+  "ratio": "4:5",
+  "status": "429",
+  "preview_url": "/static/generated/previews/preview_a12a82d4cb69ffa94da83a14abc14190.svg",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for commit (limit=20/3600s)\"}"
+}

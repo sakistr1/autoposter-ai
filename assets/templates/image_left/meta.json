@@ -1,0 +1,16 @@
+{
+  "id": "image_left",
+  "name": "Image Left",
+  "description": "Simple image-left promo",
+  "ratios": {
+    "1:1": { "width": 1080, "height": 1080, "map": {} },
+    "4:5": { "width": 1080, "height": 1350, "map": {} }
+  },
+  "fields": {
+    "image": { "x": 60, "y": 60, "w": 600, "h": 840, "fit": "cover" },
+    "title": { "x": 720, "y": 520, "w": 320, "max_lines": 2, "align": "center" },
+    "price": { "x": 720, "y": 620, "w": 320, "max_lines": 1, "align": "center" },
+    "cta":   { "x": 720, "y": 720, "w": 320, "max_lines": 1, "align": "center" },
+    "brand_color": { "value": "#0fbf91" }
+  }
+}

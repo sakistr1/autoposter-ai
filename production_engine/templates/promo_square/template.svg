@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="{{ size.w }}" height="{{ size.h }}" viewBox="0 0 {{ size.w }} {{ size.h }}">
+  <defs>
+    <style>
+      @font-face { font-family: "NotoSans"; src: local("Noto Sans"), local("NotoSans"); }
+      .title { font-family: "NotoSans", sans-serif; font-size: 64px; fill: #fff; font-weight: 700; }
+      .price { font-family: "NotoSans", sans-serif; font-size: 56px; fill: {{ accent }}; font-weight: 700; }
+      .cta   { font-family: "NotoSans", sans-serif; font-size: 40px; fill: #0b1220; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="{{ size.w }}" height="{{ size.h }}" fill="{{ bg_color }}"/>
+
+  {% if image_base64 %}
+    <image x="540" y="120" width="420" height="420" href="data:image/png;base64,{{ image_base64 }}" />
+  {% else %}
+    <rect x="540" y="120" width="420" height="420" fill="#141c2e" stroke="#22304f" stroke-width="4"/>
+    <text x="750" y="340" text-anchor="middle" class="title" fill="#47557a" font-size="28">Χωρίς εικόνα</text>
+  {% endif %}
+
+  <text x="120" y="220" class="title">{{ product_name }}</text>
+  <text x="120" y="320" class="price">{{ price }}</text>
+
+  <rect x="120" y="380" rx="16" ry="16" width="360" height="80" fill="{{ accent }}"/>
+  <text x="300" y="435" text-anchor="middle" class="cta">{{ cta }}</text>
+</svg>

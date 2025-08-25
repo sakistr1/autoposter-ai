@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Autoposter — Ιστορικό Posts</title>
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f172a; --muted:#1f2937; --text:#e5e7eb; --sub:#9ca3af;
+      --primary:#22c55e; --danger:#ef4444; --accent:#60a5fa; --chip:#334155;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto}
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-bottom:1px solid var(--muted);background:rgba(255,255,255,0.02);
+      position:sticky;top:0;backdrop-filter:saturate(140%) blur(6px);z-index:2;
+    }
+    .title{font-weight:700;font-size:16px}
+    .actions{display:flex;gap:8px;align-items:center}
+    .btn{padding:8px 12px;border:1px solid var(--muted);background:transparent;color:var(--text);border-radius:10px;cursor:pointer}
+    .btn:hover{background:#111827}
+    .btn.primary{border-color:transparent;background:var(--primary);color:#03120a}
+    .btn.accent{border-color:var(--accent);color:#dbeafe}
+    .chip{background:var(--chip);color:#cbd5e1;padding:4px 8px;border-radius:999px;font-size:12px}
+    main{max-width:1100px;margin:22px auto;padding:0 16px}
+    .empty{padding:28px;border:1px dashed var(--muted);border-radius:14px;text-align:center;color:var(--sub)}
+    .grid{display:grid;gap:12px}
+    .card{
+      border:1px solid var(--muted);background:var(--panel);border-radius:14px;padding:14px;display:flex;gap:14px;align-items:flex-start
+    }
+    .meta{flex:1;min-width:0}
+    .meta h3{margin:0 0 6px 0;font-size:15px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;color:var(--sub);font-size:12px}
+    .row .tag{background:#0b1220;border:1px solid var(--muted);padding:3px 8px;border-radius:999px}
+    .links{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .svgthumb{width:120px;min-width:120px;height:80px;border:1px solid var(--muted);border-radius:10px;background:#0b1220;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">Ιστορικό Posts</div>
+    <div class="actions">
+      <span id="creditsBadge" class="chip">Credits: …</span>
+      <button class="btn" id="refreshBtn">Ανανέωση</button>
+      <a class="btn accent" href="/dashboard.html">← Πίσω στον Wizard</a>
+    </div>
+  </header>
+
+  <main>
+    <div id="list" class="grid"></div>
+    <div id="empty" class="empty" style="display:none">Δεν υπάρχουν posts ακόμα.</div>
+  </main>
+
+  <!-- (προαιρετικό) wrapper που βάζει Authorization σε relative /me/* -->
+  <script src="/static/js/authwrap.js?v=3"></script>
+  <script>
+    const token = localStorage.getItem('token') || '';
+
+    // ------- Helpers -------
+    const fmt = (s)=> s? new Date(s.replace(' ','T')+'Z').toLocaleString() : '-';
+    function mediaList(v){
+      if (!v) return [];
+      if (Array.isArray(v)) return v;
+      try { return JSON.parse(v||'[]') } catch { return [] }
+    }
+    async function fetchJSON(url, opts={}){
+      const headers = new Headers(opts.headers||{});
+      headers.set('Authorization','Bearer ' + token);
+      if (!headers.has('Content-Type') && opts.body) headers.set('Content-Type','application/json');
+      const res = await fetch(url, {...opts, headers});
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    // ------- PNG download (ανά post) -------
+    async function downloadPng(postId){
+      try{
+        const res = await fetch(`/me/posts/${postId}/png`, {
+          headers:{Authorization:'Bearer ' + token}
+        });
+        if(!res.ok){ alert('Σφάλμα λήψης PNG'); return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `post_${postId}.png`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      }catch(e){ console.error(e); alert('Σφάλμα δικτύου'); }
+    }
+    window.downloadPng = downloadPng;
+
+    // ------- Credits -------
+    async function loadCredits(){
+      try{
+        const d = await fetchJSON('/me/credits');
+        document.getElementById('creditsBadge').textContent = `Credits: ${d.credits}`;
+      }catch(_){
+        document.getElementById('creditsBadge').textContent = 'Credits: –';
+      }
+    }
+
+    // ------- Render Posts -------
+    function renderPosts(items){
+      const list = document.getElementById('list');
+      const empty = document.getElementById('empty');
+      list.innerHTML = '';
+      if (!items || !items.length){
+        empty.style.display = '';
+        return;
+      }
+      empty.style.display = 'none';
+
+      items.forEach(p=>{
+        const urls = mediaList(p.media_urls);
+        const first = urls[0] || '';
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'svgthumb';
+        thumb.textContent = first ? 'SVG' : '—';
+        card.appendChild(thumb);
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = `#${p.id} — ${p.title || 'χωρίς τίτλο'}`;
+        meta.appendChild(h3);
+
+        const row = document.createElement('div');
+        row.className='row';
+        row.innerHTML = `
+          <span class="tag">τύπος: ${p.type || '-'}</span>
+          <span class="tag">κατάσταση: ${p.status || '-'}</span>
+          <span class="tag">ημ/νία: ${fmt(p.created_at)}</span>
+        `;
+        meta.appendChild(row);
+
+        const links = document.createElement('div');
+        links.className='links';
+        if (first){
+          const a = document.createElement('a');
+          a.href = first; a.target='_blank'; a.rel='noopener';
+          a.textContent = 'Άνοιγμα SVG';
+          links.appendChild(a);
+
+          const btn = document.createElement('button');
+          btn.className='btn primary';
+          btn.textContent = 'Download PNG';
+          btn.onclick = ()=> downloadPng(p.id);
+          links.appendChild(btn);
+        }else{
+          const s = document.createElement('span');
+          s.style.color='var(--sub)';
+          s.textContent = '— δεν βρέθηκε media —';
+          links.appendChild(s);
+        }
+        meta.appendChild(links);
+
+        card.appendChild(meta);
+        list.appendChild(card);
+      });
+    }
+
+    // ------- Load list -------
+    async function loadList(){
+      try{
+        const items = await fetchJSON('/me/posts');
+        renderPosts(items);
+      }catch(e){
+        console.error(e);
+        const empty = document.getElementById('empty');
+        empty.style.display='';
+        empty.textContent='Σφάλμα φόρτωσης.';
+      }
+    }
+
+    // ------- Boot -------
+    document.getElementById('refreshBtn').onclick = ()=>{ loadCredits(); loadList(); };
+    (async ()=>{ await loadCredits(); await loadList(); })();
+  </script>
+</body>
+</html>
