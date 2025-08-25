@@ -19,16 +19,28 @@ from models.user import User
 log = logging.getLogger("uvicorn")
 BASE_DIR = Path(__file__).resolve().parent
 PAGES_DIR = BASE_DIR / "static"
+UPLOADS_DIR = BASE_DIR / "production_engine" / "static" / "uploads"
+
+# βεβαιωνόμαστε ότι υπάρχει ο φάκελος uploads (αλλιώς το StaticFiles σκάει στο startup)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+(PAGES_DIR / "uploads").mkdir(parents=True, exist_ok=True)  # no-op αν υπάρχει ήδη
 
 app = FastAPI(title="Autoposter AI")
 
+# -------- CORS ----------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"],
+    allow_origins=os.getenv("CORS_ALLOW_ORIGINS", "*").split(",") if os.getenv("CORS_ALLOW_ORIGINS") else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Σερβίρουμε /static από τον φάκελο static/
+# ΠΡΩΤΑ mount το πιο συγκεκριμένο prefix για να μην “σκεπάζεται”
+# /static/uploads  -> production_engine/static/uploads   (εκεί γράφουν τα endpoints upload_*)
+app.mount("/static/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
+# Έπειτα το γενικό /static από τον φάκελο static/
 app.mount("/static", StaticFiles(directory=str(PAGES_DIR)), name="static")
 
 # ===== ΣΙΓΑΣΗ access logs για 404 από static & favicon =====
@@ -184,19 +196,29 @@ try:
 except Exception as e:
     log.error("[routers] FAILED production_engine.routers.previews -> %s", e)
 
+# Προσπάθησε πρώτα τον σωστό φάκελο tengine, αλλιώς παλιό όνομα templates_engine
+_loaded_tengine = False
 try:
-    from production_engine.routers.templates_engine import router as templates_engine_router
-    app.include_router(templates_engine_router)
-    log.info("[routers] loaded: production_engine.routers.templates_engine")
+    from production_engine.routers.tengine import router as tengine_router
+    app.include_router(tengine_router)
+    log.info("[routers] loaded: production_engine.routers.tengine")
+    _loaded_tengine = True
 except Exception as e:
-    log.error("[routers] FAILED production_engine.routers.templates_engine -> %s", e)
+    log.warning("[routers] production_engine.routers.tengine not found -> %s", e)
+    try:
+        from production_engine.routers.templates_engine import router as templates_engine_router
+        app.include_router(templates_engine_router)
+        log.info("[routers] loaded: production_engine.routers.templates_engine (fallback)")
+        _loaded_tengine = True
+    except Exception as e2:
+        log.error("[routers] FAILED both tengine/templates_engine -> %s", e2)
 
 try:
     from production_engine.routers.assets import router as assets_router
     app.include_router(assets_router)
     log.info("[routers] loaded: production_engine.routers.assets")
 except Exception as e:
-    log.error("[routers] FAILED production_engine.routers.assets -> %s", e)
+    log.warning("[routers] production_engine.routers.assets not loaded -> %s", e)
 
 # === ΠΡΟΣΘΗΚΗ: Templates API (create/list/get) ===
 try:
