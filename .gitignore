@@ -37,3 +37,11 @@ production_engine/static/uploads/brand/*
 !production_engine/static/uploads/brand/.gitkeep
 production_engine/static/uploads/products/*
 !production_engine/static/uploads/products/.gitkeep
+
+# --- static (project-local) ---
+static/generated/*
+!static/generated/.gitkeep
+static/uploads/brand/*
+!static/uploads/brand/.gitkeep
+static/uploads/products/*
+!static/uploads/products/.gitkeep
