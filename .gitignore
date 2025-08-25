@@ -48,3 +48,6 @@ static/uploads/products/*
 
 # local backups
 static/uploads.bak.*
+
+# temp fetched images
+static/uploads/tmp/*
