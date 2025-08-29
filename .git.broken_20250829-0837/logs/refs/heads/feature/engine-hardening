@@ -1,0 +1,7 @@
+0000000000000000000000000000000000000000 199eaf0d35f485516a9a1c93704fc22e47f99e24 dimitris <you@example.com> 1756223719 +0000	branch: Created from HEAD
+199eaf0d35f485516a9a1c93704fc22e47f99e24 5fc7c9b90199b28713b2b10b023956d7bb2daf0c dimitris <you@example.com> 1756274876 +0000	commit: previews: carousel+video MVP + music bed
+5fc7c9b90199b28713b2b10b023956d7bb2daf0c 3ca89837808132dcfe071fc9df3049ce964d91eb dimitris <you@example.com> 1756274990 +0000	commit: chore: ignore generated/test artifacts
+3ca89837808132dcfe071fc9df3049ce964d91eb a18a89a29635b347731f3147da3a794bf5db2152 dimitris <you@example.com> 1756275168 +0000	commit: chore: track mp3 via Git LFS
+a18a89a29635b347731f3147da3a794bf5db2152 fbd5f1af92db2db45d6a3086ad9097bd3aaba44b dimitris <you@example.com> 1756275319 +0000	commit: chore: normalize mp3 into Git LFS
+fbd5f1af92db2db45d6a3086ad9097bd3aaba44b 106320f19ec067e431f0308671b5b50ccc85a6d6 dimitris <you@example.com> 1756275397 +0000
+106320f19ec067e431f0308671b5b50ccc85a6d6 0759b59f01f788b1241956fa27f3ed4ace07754c dimitris <you@example.com> 1756275411 +0000	commit: chore: ignore generated/test artifacts

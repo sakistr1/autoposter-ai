@@ -1,0 +1,23 @@
+{
+  "id": "image_left",
+  "name": "Image Left",
+  "ratios": ["4:5"],
+  "has_map": true,
+  "fields": {
+    "title":       {"required": true,  "max_chars": 48, "max_lines": 2},
+    "price":       {"required": false, "max_chars": 10, "max_lines": 1},
+    "cta":         {"required": false, "max_chars": 22, "max_lines": 1},
+    "brand_color": {"required": false},
+    "logo_url":    {"required": false},
+    "image_url":   {"required": true}
+  },
+  "map": {
+    "canvas":   {"w":1080, "h":1350},
+    "image_url":{"x":0,   "y":0,   "w":680,  "h":1350, "fit":"cover",  "align":"center"},
+    "logo_url": {"x":720, "y":60,  "w":120,  "h":120,  "fit":"contain"},
+    "title":    {"x":720, "y":520, "w":320,  "max_lines":2, "align":"center"},
+    "price":    {"x":720, "y":620, "w":320,  "max_lines":1, "align":"center"},
+    "cta":      {"x":720, "y":720, "w":320,  "max_lines":1, "align":"center"},
+    "brand_color":{"value":"#0fbf91"}
+  }
+}

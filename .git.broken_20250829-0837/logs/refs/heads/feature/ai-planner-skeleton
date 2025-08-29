@@ -1,0 +1,7 @@
+0000000000000000000000000000000000000000 0759b59f01f788b1241956fa27f3ed4ace07754c dimitris <you@example.com> 1756288259 +0000	branch: Created from HEAD
+0759b59f01f788b1241956fa27f3ed4ace07754c 2a4652607c6c66d532b496d32b89f56aff0697e5 dimitris <you@example.com> 1756288260 +0000	commit: chore(ops): checkpoint before AI planner skeleton
+2a4652607c6c66d532b496d32b89f56aff0697e5 c7342c7d3606dac5d9a40f9d113938b66f290094 dimitris <you@example.com> 1756288479 +0000	commit: feat(ai): offline planner skeleton + simple overlay (no server changes)
+c7342c7d3606dac5d9a40f9d113938b66f290094 5f6f32f656c1ee4fe0d5baf67ea311ef938423aa dimitris <you@example.com> 1756288820 +0000	commit: feat(ai): add read-only /ai/plan endpoint (returns RenderSpec JSON)
+5f6f32f656c1ee4fe0d5baf67ea311ef938423aa 7aaa8e2cf6cab6d418ee1d1ed89446193882a386 dimitris <you@example.com> 1756310722 +0000	commit: chore(lock): checkpoint before next AI-flow work
+7aaa8e2cf6cab6d418ee1d1ed89446193882a386 46ec5e13fc17c5a76abc4247c661f4c83cacb2a4 dimitris <you@example.com> 1756376203 +0000	commit: Lock: v0.7.3-lock-20250828-1016 — previews fixes (image/static→normal, video schema, commit wait, objects in /committed)
+46ec5e13fc17c5a76abc4247c661f4c83cacb2a4 60890d0c8336f070b8c039451cf8f5c19955bf0d dimitris <you@example.com> 1756376204 +0000	commit: Ops: lock artifacts for v0.7.3-lock-20250828-1016

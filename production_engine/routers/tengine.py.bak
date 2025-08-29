@@ -1,0 +1,144 @@
+cd ~/autoposter-ai
+cat > production_engine/routers/tengine.py <<'PY'
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional, Literal, List
+from sqlalchemy.orm import Session
+from datetime import datetime
+import os, uuid, shutil, json
+
+from database import get_db
+from models import User, Post
+from token_module import get_current_user
+
+router = APIRouter()
+
+PE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(PE_DIR, "static")
+GEN_DIR = os.path.join(STATIC_DIR, "generated")
+PREV_DIR = os.path.join(GEN_DIR, "previews")
+FINAL_DIR = os.path.join(GEN_DIR, "finals")
+os.makedirs(PREV_DIR, exist_ok=True)
+os.makedirs(FINAL_DIR, exist_ok=True)
+
+class PreviewBody(BaseModel):
+    post_type: Literal["image","carousel","video"] = "image"
+    mode: Literal["normal","humorous","professional"] = "normal"
+    product_id: Optional[int] = None
+    title: Optional[str] = None
+    price: Optional[str] = None
+    image_url: Optional[str] = None
+    category: Optional[str] = None
+    ratio: Optional[str] = "4:5"
+
+class CommitBody(BaseModel):
+    preview_url: str
+    post_type: Literal["image","carousel","video"] = "image"
+    product_id: Optional[int] = None
+    caption: Optional[str] = None
+
+def _now_iso() -> str:
+    return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+def _svg_canvas(ratio: str) -> tuple[int,int]:
+    mapping = {"4:5": (1080,1350), "1:1": (1080,1080), "9:16": (1080,1920)}
+    return mapping.get(ratio or "4:5", (1080,1350))
+
+def _write_preview_svg(title: str, price: Optional[str], image_url: Optional[str], mode: str, ratio: str) -> str:
+    W,H = _svg_canvas(ratio)
+    safe_title = (title or "Product").replace("&","&amp;")
+    safe_price = (price or "").replace("&","&amp;")
+    bg = "#0fbf91" if mode == "professional" else ("#16a36f" if mode == "normal" else "#0aa679")
+    uid = uuid.uuid4().hex
+    filename = f"preview_{uid}.svg"
+    fpath = os.path.join(PREV_DIR, filename)
+
+    image_tag = f'<image href="{image_url}" x="60" y="140" width="{W-120}" height="{int(H*0.55)}" preserveAspectRatio="xMidYMid slice" />' if image_url else ""
+    price_tag = f'<text x="{W-60}" y="{H-60}" text-anchor="end" font-size="64" font-weight="700" fill="#ffffff">{safe_price}</text>' if safe_price else ""
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="{bg}"/>
+      <stop offset="100%" stop-color="#0b7d5a"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#g1)"/>
+  <text x="60" y="96" font-size="64" font-weight="800" fill="#ffffff">{safe_title}</text>
+  {image_tag}
+  {price_tag}
+  <text x="60" y="{H-20}" font-size="22" fill="#e7fff6">Preview • {mode} • {ratio} • {_now_iso()}</text>
+</svg>'''
+    with open(fpath, "w", encoding="utf-8") as f:
+        f.write(svg)
+    rel = os.path.relpath(fpath, STATIC_DIR).replace(os.sep, "/")
+    return f"/static/{rel}"
+
+def _copy_to_finals(preview_url: str) -> str:
+    if not preview_url.startswith("/static/generated/previews/"):
+        raise HTTPException(status_code=400, detail="Invalid preview_url")
+    src = os.path.join(STATIC_DIR, preview_url.replace("/static/", "").replace("/", os.sep))
+    if not os.path.isfile(src):
+        raise HTTPException(status_code=404, detail="Preview file not found")
+    uid = uuid.uuid4().hex
+    dst = os.path.join(FINAL_DIR, f"final_{uid}.svg")
+    shutil.copyfile(src, dst)
+    rel = os.path.relpath(dst, STATIC_DIR).replace(os.sep, "/")
+    return f"/static/{rel}"
+
+@router.post("/tengine/preview")
+def tengine_preview(body: PreviewBody, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    title = body.title
+    price = body.price
+    image_url = body.image_url
+    if body.product_id:
+        prod = db.execute(
+            "SELECT name, price, image_url FROM products WHERE id = :pid AND owner_id = :uid",
+            {"pid": body.product_id, "uid": current_user.id}
+        ).fetchone()
+        if not prod:
+            raise HTTPException(status_code=404, detail="product not found")
+        title = title or prod[0]
+        price = price or (prod[1] or "")
+        image_url = image_url or (prod[2] or "")
+    preview_url = _write_preview_svg(title or "Product", price, image_url, body.mode, body.ratio or "4:5")
+    return {"preview_url": preview_url}
+
+@router.post("/tengine/commit")
+def tengine_commit(body: CommitBody, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # credits check
+    if current_user.credits is None or current_user.credits < 1:
+        raise HTTPException(status_code=402, detail="Not enough credits")
+
+    # copy preview -> final svg
+    final_url = _copy_to_finals(body.preview_url)
+    media_urls: List[str] = [final_url]
+
+    # derive title/content so DB NOT NULL δεν σκάει
+    title_val = "Autoposter Post"
+    if body.product_id:
+        prod = db.execute(
+            "SELECT name FROM products WHERE id = :pid AND owner_id = :uid",
+            {"pid": body.product_id, "uid": current_user.id}
+        ).fetchone()
+        if prod and prod[0]:
+            title_val = prod[0]
+    content_val = body.caption or f"Generated on {_now_iso()} • media: {final_url}"
+
+    # create post, then decrease credits, then commit (μία συναλλαγή)
+    post = Post(
+        title=title_val,
+        content=content_val,
+        owner_id=current_user.id,
+        product_id=body.product_id,
+        type=body.post_type,
+        media_urls=json.dumps(media_urls),
+    )
+    db.add(post)
+    current_user.credits -= 1
+    db.add(current_user)
+
+    db.commit()
+    db.refresh(post)
+
+    return {"post_id": post.id, "media_urls": media_urls, "credits_left": current_user.credits}
+PY

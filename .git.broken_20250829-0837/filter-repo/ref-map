@@ -1,0 +1,6 @@
+old                                      new                                      ref
+12ef19b6c507bfe39ee665b3f0fdf73d2968be01 12ef19b6c507bfe39ee665b3f0fdf73d2968be01 refs/heads/master
+e2da8dc1a3d313f26dd368fae695a7929e17588d e2da8dc1a3d313f26dd368fae695a7929e17588d refs/remotes/backup/master
+1d19c56474d9045c050209c40ce3d0aada8a0251 1d19c56474d9045c050209c40ce3d0aada8a0251 refs/tags/v0.6-dashboard-preview-ok
+a862249e53475599860d25739b1ae7886648c044 a862249e53475599860d25739b1ae7886648c044 refs/tags/v0.6-dashboard-preview-wired
+2b3e20db6a10b8bc0b2d389d10aac17be37a4ba9 2b3e20db6a10b8bc0b2d389d10aac17be37a4ba9 refs/tags/v0.6-preview-stable

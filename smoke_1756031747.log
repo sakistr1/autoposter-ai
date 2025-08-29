@@ -1,0 +1,29 @@
+nohup: ignoring input
+EMAIL=demo10@gmail.com
+
+### healthz
+
+### openapi paths
+
+### static HEADs
+   
+
+### tengine/templates
+
+### previews/render
+preview_url=<none>
+preview_id=<none>
+
+### me/credits (πριν)
+SKIP commit: δεν βγήκε preview_id (δες /tmp/render_resp.json)
+
+### previews/committed
+
+### upload_logo
+DB_UID=<none>
+SKIP upload_product_images: δεν βρέθηκε DB_UID στο autoposter.db
+  -> Έλεγξε ποιο DB χρησιμοποιεί το app ή φτιάξε τον χρήστη μέσα στο autoposter.db.
+
+### tengine/mapping/resolve
+
+=== DONE ===

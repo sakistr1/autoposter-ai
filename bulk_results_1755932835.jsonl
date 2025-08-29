@@ -1,0 +1,120 @@
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 49,
+  "png": "/static/generated/finals/final_ac41a052eeac4871b6fd04794b2c8136.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 50,
+  "png": "/static/generated/finals/final_2671a41a7a3d4acdb77888fe64cdab50.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 51,
+  "png": "/static/generated/finals/final_75fbf0d596304d9693f585dc8d9ce282.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 52,
+  "png": "/static/generated/finals/final_27bdd98cbc0a4fbd925f71930c639c46.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 53,
+  "png": "/static/generated/finals/final_f6816dbabfdc4222882e9255c98c9f2e.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 54,
+  "png": "/static/generated/finals/final_999692bb369045369e61aca7f28d27e3.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 55,
+  "png": "/static/generated/finals/final_b6f0c392422c4b028ea8b0ad7eabc566.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 56,
+  "png": "/static/generated/finals/final_8e8abbacb0b84545873741a4cc189081.png"
+}
+{
+  "ok": true,
+  "title": "Test Product 5",
+  "ratio": "1:1",
+  "post_id": 57,
+  "png": "/static/generated/finals/final_aea4895fd1a8468fb9ff95ee6580cdd4.png"
+}
+{
+  "ok": true,
+  "title": "Test Product 5",
+  "ratio": "4:5",
+  "post_id": 58,
+  "png": "/static/generated/finals/final_de5516b823384eb9b372fd5e36a4acc1.png"
+}
+{
+  "ok": true,
+  "title": "Test Product 4",
+  "ratio": "1:1",
+  "post_id": 59,
+  "png": "/static/generated/finals/final_b5d938bd670b4c9aa17e3a88321d205c.png"
+}
+{
+  "ok": true,
+  "title": "Test Product 4",
+  "ratio": "4:5",
+  "post_id": 60,
+  "png": "/static/generated/finals/final_36ed60a929bd42dc9f18f37110e6f880.png"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "error": "no preview_url"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "error": "no preview_url"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "error": "no preview_url"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "error": "no preview_url"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "error": "no preview_url"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "error": "no preview_url"
+}

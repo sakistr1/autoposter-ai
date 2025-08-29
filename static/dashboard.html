@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>AutoPoster — Dashboard</title>
+  <style>
+    :root{
+      --bg:#0f1216;--panel:#141922;--muted:#1b2330;--text:#e7edf5;--sub:#a8b3c7;--brand:#3b82f6;--ok:#22c55e;--bad:#ef4444;
+      --chip:#223046;--chipText:#b9c7dc;--shadow:0 6px 18px rgba(0,0,0,.40);
+    }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    a{color:var(--text);text-decoration:none}
+
+    /* Header */
+    .nav{display:flex;align-items:center;gap:8px}
+    .nav h1{font-size:18px;margin:0 12px 0 0}
+    .pill{background:#223046;color:#b9c7dc;padding:4px 8px;border-radius:999px;font-size:12px}
+    .tabs{display:flex;gap:8px;margin-left:8px}
+    .tab{padding:8px 12px;border-radius:10px;background:#131a24;border:1px solid #1f2a3c;cursor:pointer}
+    .tab.active{background:#1a2332;border-color:#2a3850}
+    .btn{background:#172131;border:1px solid #253149;border-radius:10px;color:var(--text);padding:8px 12px;cursor:pointer}
+    .btn:hover{filter:brightness(1.1)}
+    .btn.brand{background:var(--brand);border-color:var(--brand);color:#fff}
+    .btn.ok{background:var(--ok);border-color:var(--ok);color:#03120a}
+    .btn.bad{background:#1b2028;border-color:#2b3242;color:#ffb4b4}
+    .btn[disabled]{opacity:.55;cursor:not-allowed}
+
+    .alert{background:#2a1317;border:1px solid #4b1e26;color:#ffb4b4;border-radius:10px;padding:10px 12px;margin:12px 0}
+    .secTitle{font-weight:600;margin:8px 0}
+    .small{color:var(--sub);font-size:12px}
+    .help{color:var(--sub);font-size:12px;margin-left:6px}
+    .input,.select,.file{background:#0f151f;border:1px solid #1f2a3c;color:var(--text);padding:8px 10px;border-radius:10px;outline:none}
+    .split{display:grid;grid-template-columns: 480px 1fr;gap:14px}
+    .card{background:var(--panel);border:1px solid #1f2a36;border-radius:16px;box-shadow:var(--shadow)}
+    .pad{padding:12px}
+    .row{display:flex;gap:10px;align-items:center}
+    .col{display:flex;flex-direction:column;gap:8px}
+    .switch{display:flex;gap:10px}
+    .switch .opt{border:1px solid #29364b;background:#131a24;color:var(--text);padding:6px 10px;border-radius:10px;cursor:pointer}
+    .opt.active{background:#24324a}
+    .previewBox{background:#0c1118;border:1px dashed #2a3850;border-radius:14px;display:flex;align-items:center;justify-content:center;min-height:420px}
+    .previewBox img{max-width:100%;max-height:420px;border-radius:12px}
+
+    /* Spinner */
+    .spin{display:inline-block;vertical-align:-2px;width:14px;height:14px;border-radius:999px;border:2px solid #93b5ff;border-top-color:transparent;animation:sp 1s linear infinite;margin-right:6px}
+    @keyframes sp{to{transform:rotate(360deg)}}
+
+    /* Carousels (fixed + snap) */
+    .carouselWrap{position:relative;padding:0 44px}
+    .hscroll{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding:8px 4px;scroll-snap-type:x mandatory}
+    .hscroll::-webkit-scrollbar{height:8px}
+    .hscroll::-webkit-scrollbar-thumb{background:#223044;border-radius:10px}
+    .arrow{position:absolute;top:50%;transform:translateY(-50%);display:flex}
+    .arrow .a{width:36px;height:36px;border-radius:999px;background:#131a24;border:1px solid #1f2a3c;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .arrow.left{left:4px}
+    .arrow.right{right:4px}
+
+    /* product card fixed size */
+    .prodCard{min-width:220px;max-width:220px;scroll-snap-align:start}
+    .prodCard img{width:100%;height:140px;object-fit:cover;border-radius:16px 16px 0 0;background:#fff}
+    .prodPad{padding:10px 12px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav">
+    <h1>AutoPoster</h1>
+    <div id="credits" class="pill">Credits: —</div>
+    <div class="tabs">
+      <div class="tab active" data-view="products">Προϊόντα</div>
+      <div class="tab" data-view="editor">Editor</div>
+      <div class="tab" data-view="history">Ιστορικό</div>
+    </div>
+    <div style="margin-left:auto" class="row">
+      <button class="btn" id="syncBtn">Συγχρονισμός</button>
+      <button class="btn" id="subsBtn">Συνδρομή</button>
+      <button class="btn" id="buyBtn">Αγορά Credits</button>
+      <button class="btn bad" id="logoutBtn">Έξοδος</button>
+    </div>
+  </div>
+
+  <div id="noToken" class="alert" style="display:none">Δεν βρέθηκε token. Άνοιξε τη σελίδα με <code>?token=JWT</code> ή κάνε login.</div>
+
+  <!-- PRODUCTS -->
+  <section id="view-products">
+    <h3 class="secTitle">Προϊόντα</h3>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div class="row">
+        <span class="small">Κατηγορία</span>
+        <select id="catFilter" class="select">
+          <option value="all">Όλες</option>
+          <option>Ρούχα</option>
+          <option>Παπούτσια</option>
+          <option>Ηλεκτρονικά</option>
+          <option>Αξεσουάρ</option>
+        </select>
+      </div>
+      <div class="small">Force Demo: το grid δείχνει demo προϊόντα από <code>/static/demo/</code></div>
+    </div>
+
+    <div class="carouselWrap" style="margin-top:10px">
+      <div class="arrow left"><div class="a" id="pLeft">◀</div></div>
+      <div class="arrow right"><div class="a" id="pRight">▶</div></div>
+      <div id="prodStrip" class="hscroll"></div>
+    </div>
+  </section>
+
+  <!-- EDITOR -->
+  <section id="view-editor" style="display:none">
+    <h3 class="secTitle">Editor</h3>
+
+    <!-- === Post Controls (ΜΟΝΟ 3 επιλογές) === -->
+    <div id="post-controls" style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; margin:.5rem 0;">
+      <label>Τύπος Post
+        <span class="help">Static=εικόνα • Carousel=πολλαπλές • Video=mp4</span><br>
+        <select id="modeTop" class="select">
+          <option value="normal">Static</option>
+          <option value="carousel">Carousel</option>
+          <option value="video">Video</option>
+        </select>
+      </label>
+
+      <label>Πλατφόρμα
+        <span class="help">Ο λόγος πλευρών ορίζεται αυτόματα</span><br>
+        <select id="platformTop" class="select">
+          <option>instagram</option>
+          <option>facebook</option>
+          <option>tiktok</option>
+          <option>linkedin</option>
+        </select>
+      </label>
+
+      <label>Ύφος
+        <span class="help">Κανονικό / Χιουμοριστικό / Επαγγελματικό</span><br>
+        <select id="styleTop" class="select">
+          <option value="normal">Κανονικό</option>
+          <option value="humor">Χιουμοριστικό</option>
+          <option value="pro">Σοβαρό/Επαγγελματικό</option>
+        </select>
+      </label>
+
+      <!-- ΚΡΥΦΑ βοηθητικά πεδία (για fallback) -->
+      <label id="image-url-wrap" style="display:none">Εικόνα (relative):
+        <input id="image_url" type="text" placeholder="/static/demo/outfit1.webp" style="min-width:280px">
+      </label>
+      <label id="images-wrap" style="display:none">Εικόνες (μία ανά γραμμή):
+        <textarea id="images" rows="3" placeholder="/static/demo/outfit1.webp
+/static/demo/shoes1.webp" style="min-width:320px"></textarea>
+      </label>
+      <label id="fps-wrap" style="display:none">FPS:
+        <input id="fps" type="number" value="30" min="15" max="60" step="1">
+      </label>
+      <label id="duration-wrap" style="display:none">Διάρκεια (s):
+        <input id="duration" type="number" value="12" min="5" max="30" step="1">
+      </label>
+    </div>
+    <!-- === /Post Controls === -->
+
+    <div class="split">
+      <div class="card">
+        <div class="pad col" style="gap:10px">
+          <div class="row" style="gap:10px;align-items:flex-start">
+            <img id="selImg" src="" alt="" style="width:110px;height:110px;object-fit:cover;border-radius:10px;background:#fff"/>
+            <div class="col" style="flex:1">
+              <div class="switch" id="rendererSwitch">
+                <div class="opt active" data-r="template">Template</div>
+                <div class="opt" data-r="ai">AI Visual</div>
+              </div>
+              <div class="row" style="gap:8px">
+                <div class="pill">Facebook</div>
+                <div class="pill">Instagram</div>
+                <div class="pill">TikTok</div>
+                <div class="pill">LinkedIn</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row" style="gap:10px">
+            <input id="title" class="input" placeholder="Τίτλος" style="flex:1"/>
+            <input id="newPrice" class="input" placeholder="Τιμή (€)" style="width:120px"/>
+            <label class="row small" style="gap:6px"><input type="checkbox" id="hasDiscount"/> Έκπτωση</label>
+            <input id="oldPrice" class="input" placeholder="Παλιά τιμή (€)" style="width:120px;display:none"/>
+          </div>
+
+          <input id="imageUrl" class="input" placeholder="Κεντρική εικόνα (URL) — αν λείπει, χρησιμοποιείται του προϊόντος"/>
+          <div class="row">
+            <input id="brandLogo" type="file" class="file" accept="image/*"/>
+            <input id="extraImages" type="file" class="file" accept="image/*" multiple/>
+          </div>
+          <div class="small">* Λογότυπο/επιπλέον φωτογραφίες βελτιώνουν το αποτέλεσμα.</div>
+          <input id="purchaseUrl" class="input" placeholder="Link αγοράς (URL)"/>
+          <input id="cta" class="input" placeholder="CTA label" value="Αγορά τώρα"/>
+
+          <!-- Κρύβουμε τα παλιά "επιλογικά" -->
+          <div id="tplOpts" class="row" style="gap:10px; display:none">
+            <select id="postStyle" class="select">
+              <option value="normal">Κανονικό</option>
+              <option value="humor">Χιουμοριστικό</option>
+              <option value="pro">Σοβαρό/Επαγγελματικό</option>
+            </select>
+            <select id="platform" class="select">
+              <option>instagram</option>
+              <option>facebook</option>
+              <option>tiktok</option>
+              <option>linkedin</option>
+            </select>
+            <select id="ratio" class="select">
+              <option value="1:1">1:1</option>
+              <option value="4:5">4:5</option>
+              <option value="9:16">9:16</option>
+            </select>
+            <select id="template" class="select">
+              <option value="clean">clean</option>
+              <option value="bold">bold</option>
+              <option value="minimal">minimal</option>
+            </select>
+          </div>
+
+          <div id="aiOpts" class="col" style="display:none">
+            <textarea id="aiPrompt" class="input" rows="3" placeholder="AI prompt"></textarea>
+            <div class="row">
+              <select id="aiStyle" class="select">
+                <option value="photorealistic">photorealistic</option>
+                <option value="illustration">illustration</option>
+                <option value="minimal">minimal</option>
+                <option value="neon">neon</option>
+              </select>
+              <label class="row small" style="gap:6px;align-items:center">
+                Strength <input id="aiStrength" type="range" min="1" max="10" value="6"/>
+              </label>
+            </div>
+            <div class="alert">AI Visual backend WIP — Preview/Commit απενεργοποιημένα εδώ.</div>
+          </div>
+
+          <div class="row" style="gap:8px;justify-content:flex-end">
+            <button class="btn" id="previewBtn"><span class="spin" id="spinPrev" style="display:none"></span>Preview</button>
+            <button class="btn ok" id="commitBtn" disabled><span class="spin" id="spinCommit" style="display:none"></span>Commit (−1 credit)</button>
+            <button class="btn" id="dlBtn" disabled>Λήψη PNG</button>
+            <button class="btn" id="shareBtn" disabled>Κοινοποίηση</button>
+          </div>
+          <div class="small">Δημιουργήθηκε Post: <span id="committedAt" class="small">—</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="pad">
+          <div class="secTitle">Preview</div>
+          <div id="previewBox" class="previewBox"><span class="small">Κάνε Preview για να εμφανιστεί εδώ η εικόνα</span></div>
+          <!-- ↓↓↓ ΜΟΝΟ προσθήκη: Image Check box κάτω από το preview ↓↓↓ -->
+          <div id="image-check-box" style="display:none;margin-top:12px;padding:12px;border:1px solid #1f2937;border-radius:10px;background:#111827;color:#e5e7eb">
+            <div style="font-weight:600;margin-bottom:6px">Έλεγχος εικόνας</div>
+            <div id="ic-category">Κατηγορία: —</div>
+            <div id="ic-quality">Ποιότητα: —</div>
+            <div id="ic-bg">Φόντο: —</div>
+            <div id="ic-sugg" style="margin-top:6px">Προτάσεις: —</div>
+            <div id="ic-meta" class="muted" style="margin-top:6px;font-size:12px;color:#9ca3af"></div>
+          </div>
+          <!-- ↑↑↑ τέλος προσθήκης -->
+        </div>
+        <div class="pad">
+          <div class="secTitle">Ιστορικό (τελευταία 10)</div>
+          <div class="carouselWrap">
+            <div class="arrow left"><div class="a" id="hLeft">◀</div></div>
+            <div class="arrow right"><div class="a" id="hRight">▶</div></div>
+            <div id="hist" class="hscroll"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY BIG -->
+  <section id="view-history" style="display:none">
+    <h3 class="secTitle">Ιστορικό</h3>
+    <div class="carouselWrap">
+      <div class="arrow left"><div class="a" id="HLeft">◀</div></div>
+      <div class="arrow right"><div class="a" id="HRight">▶</div></div>
+      <div id="histBig" class="hscroll"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // ===== helpers / token =====
+  const qs = new URLSearchParams(location.search);
+  const qp = qs.get('token'); if(qp) localStorage.setItem('token', qp);
+  const TOKEN = localStorage.getItem('token') || '';
+  if(!TOKEN) document.getElementById('noToken').style.display='block';
+  const headers = () => TOKEN ? { 'Authorization':'Bearer '+TOKEN } : {};
+  const $ = s => document.querySelector(s);
+  const el = (t,c)=>{const n=document.createElement(t); if(c) n.className=c; return n;}
+  const show = (sel,flag)=>{const x=$(sel); if(!x) return; x.style.display = flag?'':'none';}
+
+  // ===== tabs =====
+  const views = {products:$('#view-products'), editor:$('#view-editor'), history:$('#view-history')};
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.onclick=()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      Object.values(views).forEach(v=>v.style.display='none');
+      views[t.dataset.view].style.display='block';
+      if(t.dataset.view==='history') loadHistoryBig();
+    };
+  });
+
+  // ===== credits =====
+  async function loadCredits(){
+    if(!TOKEN) return;
+    try{
+      const r=await fetch('/me/credits',{headers:headers()});
+      const j=await r.json();
+      $('#credits').textContent='Credits: '+(j.credits ?? '—');
+    }catch{}
+  }
+
+  // ===== products (demo) =====
+  const DEMO = [
+    {id:'p1',cat:'Παπούτσια',title:'Sneakers Alpha',price:'69.00',img:'/static/demo/shoes1.webp'},
+    {id:'p2',cat:'Ρούχα',title:'Outfit Black',price:'149.00',img:'/static/demo/outfit1.webp'},
+    {id:'p3',cat:'Ηλεκτρονικά',title:'Laptop',price:'799.00',img:'/static/demo/laptop.jpg'},
+    {id:'p4',cat:'Παπούτσια',title:'Runner Red',price:'89.00',img:'/static/demo/shoes2.jpg'},
+    {id:'p5',cat:'Παπούτσια',title:'Sneakers White',price:'79.00',img:'/static/demo/shoes3.jpg'},
+    {id:'p6',cat:'Ρούχα',title:'Outfit Grey',price:'139.00',img:'/static/demo/outfit2.jpg'},
+  ];
+  function productCard(p){
+    const c=el('div','card prodCard');
+    const im=el('img'); im.src=p.img; im.alt=p.title; c.appendChild(im);
+    const pad=el('div','prodPad'); c.appendChild(pad);
+    const cat=el('div','small'); cat.textContent=p.cat; pad.appendChild(cat);
+    const t=el('div'); t.textContent=p.title; pad.appendChild(t);
+    const pr=el('div','small'); pr.textContent='€ '+p.price; pad.appendChild(pr);
+    const b=el('button','btn'); b.textContent='Επιλογή'; b.onclick=()=>selectProduct(p); pad.appendChild(b);
+    return c;
+  }
+  function loadProducts(){
+    const strip=$('#prodStrip'); strip.innerHTML='';
+    const cat=$('#catFilter').value;
+    DEMO.filter(p=>cat==='all'||p.cat===cat).forEach(p=>strip.appendChild(productCard(p)));
+  }
+  $('#catFilter').onchange=loadProducts;
+
+  function firstCardWidth(cont){
+    const card = cont.querySelector('.prodCard');
+    const styles = getComputedStyle(cont);
+    const gap = parseInt(styles.columnGap || styles.gap || '12',10) || 12;
+    return (card ? card.getBoundingClientRect().width : 220) + gap;
+  }
+  function attachArrows(leftId,rightId,contId){
+    const L=$(leftId), R=$(rightId), C=$(contId);
+    const step = ()=>firstCardWidth(C);
+    L.onclick=()=>C.scrollBy({left:-step(),behavior:'smooth'});
+    R.onclick=()=>C.scrollBy({left: step(),behavior:'smooth'});
+  }
+  attachArrows('#pLeft','#pRight','#prodStrip');
+
+  // ===== editor state =====
+  let renderer='template';
+  let lastPreview={id:'',absUrl:'',relUrl:''};
+
+  function selectProduct(p){
+    // go editor
+    document.querySelector('.tab.active').classList.remove('active');
+    document.querySelector('.tab[data-view="editor"]').classList.add('active');
+    Object.values(views).forEach(v=>v.style.display='none');
+    views.editor.style.display='block';
+
+    $('#selImg').src=p.img;
+    if(!$('#imageUrl').value) $('#imageUrl').value=p.img;
+
+    // default για carousel/video: βάλε την κύρια εικόνα σαν λίστα
+    $('#image_url').value = p.img;
+    $('#images').value = p.img;
+
+    if(!$('#title').value) $('#title').value=p.title;
+    if(!$('#newPrice').value) $('#newPrice').value=p.price;
+
+    lastPreview={id:'',absUrl:'',relUrl:''};
+    $('#previewBox').innerHTML='<span class="small">Κάνε Preview για να εμφανιστεί εδώ η εικόνα</span>';
+    $('#commitBtn').disabled=true; $('#dlBtn').disabled=true; $('#shareBtn').disabled=true;
+  }
+
+  document.querySelectorAll('#rendererSwitch .opt').forEach(o=>{
+    o.onclick=()=>{
+      document.querySelectorAll('#rendererSwitch .opt').forEach(x=>x.classList.remove('active'));
+      o.classList.add('active');
+      renderer=o.dataset.r;
+      $('#tplOpts').style.display = renderer==='template' ? 'none' : 'none'; // κρυφό
+      $('#aiOpts').style.display  = renderer==='ai' ? '' : 'none';
+      const ai = renderer==='ai';
+      $('#previewBtn').disabled = ai;
+      $('#commitBtn').disabled = true;
+    };
+  });
+  $('#hasDiscount').onchange=()=>{ $('#oldPrice').style.display = $('#hasDiscount').checked ? '' : 'none'; };
+  const abs2rel=u=>u.replace(/^https?:\/\/[^/]+/,'');
+
+  // ratio από πλατφόρμα
+  const RATIO_BY_PLATFORM = { instagram:'1:1', facebook:'1:1', linkedin:'1:1', tiktok:'9:16' };
+
+  // ===== Preview (κάτω κουμπί) — static ή redirect σε carousel/video =====
+  async function doPreview(){
+    const modeTop = $('#modeTop').value;
+    if(modeTop !== 'normal'){ // για Carousel/Video χρησιμοποίησε τον builder
+      return pcRender();
+    }
+
+    if(renderer!=='template'){ alert('AI Visual WIP'); return; }
+    const img = $('#imageUrl').value || $('#selImg').src;
+    const price = $('#newPrice').value.trim();
+    if(!img){ alert('Βάλε εικόνα.'); return; }
+    if(!/^\d+(\.\d{1,2})?$/.test(price)){ alert('Τιμή σε μορφή 12.34'); return; }
+
+    const platform = $('#platformTop').value;
+    const payload = {
+      platform,
+      ratio: RATIO_BY_PLATFORM[platform] || '1:1',
+      mode: $('#styleTop').value,                  // ύφος
+      template: 'clean',
+      title: $('#title').value || 'Demo Προϊόν',
+      new_price: $('#newPrice').value || '',
+      old_price: $('#hasDiscount').checked ? ($('#oldPrice').value||'') : '',
+      image_url: img,
+      brand_logo_url: "",
+      purchase_url: $('#purchaseUrl').value || 'https://example.com/p/123',
+      cta_label: $('#cta').value || 'Αγορά τώρα'
+    };
+
+    $('#previewBtn').disabled = true; $('#commitBtn').disabled = true; show('#spinPrev', true);
+    try{
+      const r=await fetch('/previews/render',{method:'POST',headers:{...headers(),'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const j=await r.json(); if(!r.ok) throw new Error(j.detail||'render failed');
+
+      const abs = j.absolute_url || j.preview_url || j.url || '';
+      lastPreview = { id: (j.preview_id||j.id||''), absUrl: abs, relUrl: abs2rel(abs) };
+      const im = el('img'); im.src = abs;
+      $('#previewBox').innerHTML=''; $('#previewBox').appendChild(im);
+      $('#dlBtn').disabled=false; $('#shareBtn').disabled=false;
+      $('#commitBtn').disabled=false;
+      loadHistory();
+
+      // ---- ΜΟΝΟ προσθήκη: εμφάνιση Image Check από τη response ----
+      renderImageCheck(extractImageCheck(j));
+      // --------------------------------------------------------------
+
+    }catch(e){ alert('Render error: '+e.message); }
+    finally{ show('#spinPrev', false); $('#previewBtn').disabled = false; }
+  }
+
+  // ===== Commit (κάτω κουμπί) — static ή redirect σε carousel/video =====
+  async function doCommit(){
+    const modeTop = $('#modeTop').value;
+    if(modeTop !== 'normal'){
+      return pcCommit();
+    }
+    if(renderer!=='template'){ alert('AI Visual WIP'); return; }
+    if(!lastPreview.relUrl){ alert('Πρέπει πρώτα Preview.'); return; }
+
+    $('#commitBtn').disabled=true; show('#spinCommit', true);
+    const body = lastPreview.id ? {preview_id:lastPreview.id,preview_url:lastPreview.relUrl}
+                                : {preview_url:lastPreview.relUrl};
+    try{
+      const r=await fetch('/previews/commit',{method:'POST',headers:{...headers(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const j=await r.json(); if(!r.ok) throw new Error(j.detail||'commit failed');
+      const committed = j.absolute_url || j.committed_url || '';
+      $('#committedAt').textContent = new Date().toLocaleString();
+      if(committed){ $('#dlBtn').onclick=()=>window.open(committed,'_blank'); }
+      loadCredits(); loadHistory(); loadHistoryBig();
+      alert('OK: Post δημιουργήθηκε.');
+    }catch(e){ alert('Commit error: '+e.message); }
+    finally{ show('#spinCommit', false); $('#commitBtn').disabled=false; }
+  }
+
+  $('#previewBtn').onclick=doPreview;
+  $('#commitBtn').onclick=doCommit;
+
+  // ===== history =====
+  async function loadHistory(){
+    if(!TOKEN) return;
+    try{
+      const r=await fetch('/previews/committed?limit=10',{headers:headers()});
+      const j=await r.json();
+      const list=j.images||j.results||j.items||[];
+      const urls=Array.isArray(list)?list.map(x=>x.absolute_url||x.url||x.final_url||x).flat():[];
+      const box=$('#hist'); box.innerHTML='';
+      urls.forEach(u=>{ const a=el('a'); a.href=u; a.target='_blank'; const im=el('img'); im.src=u; im.style.cssText='height:90px;border-radius:10px;background:#fff'; a.appendChild(im); box.appendChild(a); });
+    }catch{}
+  }
+  async function loadHistoryBig(){
+    if(!TOKEN) return;
+    try{
+      const r=await fetch('/previews/committed?limit=20',{headers:headers()});
+      const j=await r.json();
+      const list=j.images||j.results||j.items||[];
+      const urls=Array.isArray(list)?list.map(x=>x.absolute_url||x.url||x.final_url||x).flat():[];
+      const box=$('#histBig'); box.innerHTML='';
+      urls.forEach(u=>{ const a=el('a'); a.href=u; a.target='_blank'; const im=el('img'); im.src=u; im.style.cssText='height:150px;border-radius:12px;background:#fff'; a.appendChild(im); box.appendChild(a); });
+    }catch{}
+  }
+  attachArrows('#hLeft','#hRight','#hist');
+  attachArrows('#HLeft','#HRight','#histBig');
+
+  // ===== header buttons =====
+  $('#logoutBtn').onclick=()=>{ localStorage.removeItem('token'); location.href='/auth.html'; };
+  $('#syncBtn').onclick=()=>alert('Ρυθμίσεις Woo — WIP');
+  $('#subsBtn').onclick=()=>alert('Συνδρομή — WIP');
+  $('#buyBtn').onclick=()=>alert('Αγορά Credits — WIP');
+
+  // ===== init =====
+  loadCredits(); loadProducts(); loadHistory();
+
+  // === ΜΟΝΟ προσθήκη: helpers για Image Check ===
+  function renderImageCheck(ic){
+    const box = document.getElementById('image-check-box');
+    if(!box){ return; }
+    if(!ic){ box.style.display='none'; return; }
+    const cat = ic.category ?? '—';
+    const q   = ic.quality ?? 'unknown';
+    const bg  = ic.background ?? 'unknown';
+    const sug = Array.isArray(ic.suggestions) ? ic.suggestions : [];
+    const meta= ic.meta || {};
+    const qColor = q==='ok' ? '#10b981' : (q==='low' ? '#ef4444' : '#9ca3af');
+    const bgColor = bg==='clean' ? '#10b981' : (bg==='busy' ? '#f59e0b' : '#9ca3af');
+
+    document.getElementById('ic-category').textContent = `Κατηγορία: ${cat}`;
+    document.getElementById('ic-quality').innerHTML    = `Ποιότητα: <span style="color:${qColor}">${q}</span>`;
+    document.getElementById('ic-bg').innerHTML         = `Φόντο: <span style="color:${bgColor}">${bg}</span>`;
+    document.getElementById('ic-sugg').innerHTML       = `Προτάσεις: ${
+      sug.length ? sug.map(s=>`<span style="display:inline-block;background:#1f2937;border:1px solid #374151;border-radius:999px;padding:4px 8px;margin-right:6px;margin-top:4px">${s}</span>`).join('') : '—'
+    }`;
+    document.getElementById('ic-meta').textContent     = `meta: ${JSON.stringify(meta)}`;
+    box.style.display='block';
+  }
+  function extractImageCheck(resp){
+    if(resp?.plan?.image_check) return resp.plan.image_check;   // από /ai|manual/plan
+    if(resp?.image_check)       return resp.image_check;        // echo από /previews/render
+    return null;
+  }
+  // === τέλος προσθήκης ===
+
+  // ==========================
+  // === Builder για Carousel/Video (χρήση από τα κάτω κουμπιά) ===
+  // ==========================
+  (function(){
+    function buildPayload(){
+      const mode = $('#modeTop').value;                 // normal | carousel | video
+      const platform = $('#platformTop').value;
+      const base = { platform, mode, template:'clean' };
+
+      if (mode === 'normal') {
+        const url = ($('#image_url').value||$('#imageUrl').value||$('#selImg').src||'').trim();
+        if(!url || !url.startsWith('/static/')) throw new Error('Δώσε relative path που να ξεκινά με /static/');
+        return { ...base, ratio: RATIO_BY_PLATFORM[platform]||'1:1', image_url: url };
+      } else {
+        // εικόνες: από textarea αν υπάρχει, αλλιώς η τρέχουσα εικόνα
+        let lines = ($('#images').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+        if(lines.length===0){
+          const one = ($('#image_url').value||$('#imageUrl').value||$('#selImg').src||'').trim();
+          if(one) lines=[one];
+        }
+        if(lines.some(u=>!u.startsWith('/static/'))) throw new Error('Όλες οι εικόνες πρέπει να είναι /static/ paths');
+        const payload = { ...base, images: lines };
+        if (mode === 'video') {
+          const fps = parseInt($('#fps').value||'30',10);
+          const duration = parseFloat($('#duration').value||'12');
+          payload.fps = fps;
+          payload.duration = duration;
+        }
+        return payload;
+      }
+    }
+
+    async function pcRender(){
+      try{
+        const body = buildPayload();
+        const r = await fetch('/previews/render', {
+          method:'POST', headers:{...headers(),'Content-Type':'application/json'},
+          body: JSON.stringify(body)
+        });
+        const j = await r.json();
+        if(!r.ok) throw new Error(j.detail||r.status);
+        lastPreview = { id:(j.preview_id||j.id||''), absUrl:(j.absolute_url||j.preview_url||j.url||''), relUrl:(j.preview_url||j.url||'') };
+        const im = el('img'); im.src = j.absolute_url || j.preview_url || j.url || '';
+        $('#previewBox').innerHTML=''; $('#previewBox').appendChild(im);
+        $('#commitBtn').disabled = false;
+
+        // ---- ΜΟΝΟ προσθήκη: εμφάνιση Image Check από τη response ----
+        renderImageCheck(extractImageCheck(j));
+        // --------------------------------------------------------------
+
+      }catch(e){
+        alert('Render error: '+e.message);
+      }
+    }
+
+    async function pcCommit(){
+      try{
+        if(!lastPreview.relUrl) throw new Error('Κάνε πρώτα Preview');
+        const r = await fetch('/previews/commit', {
+          method:'POST', headers:{...headers(),'Content-Type':'application/json'},
+          body: JSON.stringify({ preview_url: lastPreview.relUrl })
+        });
+        const j = await r.json();
+        if(!r.ok) throw new Error(j.detail||r.status);
+        alert('Commit OK');
+        loadCredits(); loadHistory(); loadHistoryBig();
+      }catch(e){
+        alert('Commit error: '+e.message);
+      }
+    }
+
+    // εκθέτουμε για χρήση από τα κάτω κουμπιά
+    window.pcRender = pcRender;
+    window.pcCommit = pcCommit;
+  })();
+</script>
+</body>
+</html>

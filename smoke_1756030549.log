@@ -1,0 +1,37 @@
+EMAIL=demo10@gmail.com
+
+### healthz
+
+### openapi
+
+### auth.html
+
+### dashboard
+
+### templates list
+
+### render
+preview_id=
+
+### top-up credits (sqlite)
+
+### check credits
+
+### commit
+
+### credits after commit
+
+### committed[0]
+
+### download sample images
+
+### upload_logo
+PRODUCT_ID=
+
+### upload_product_images
+
+### mapping rules (POST)
+
+### mapping resolve (POST)
+
+=== DONE ===

@@ -1,0 +1,28 @@
+nohup: ignoring input
+EMAIL=demo10@gmail.com
+
+### healthz
+
+### openapi paths
+
+### static HEADs
+   
+
+### tengine/templates
+
+### previews/render
+preview_url=<none>
+preview_id=<none>
+
+### me/credits (πριν)
+SKIP commit: δεν βγήκε preview_id
+
+### previews/committed
+
+### upload_logo
+DB_UID=<none>
+SKIP upload_product_images: δεν βρέθηκε DB_UID
+
+### tengine/mapping/resolve
+
+=== DONE ===

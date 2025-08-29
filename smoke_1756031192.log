@@ -1,0 +1,37 @@
+nohup: ignoring input
+EMAIL=demo10@gmail.com
+
+### healthz
+
+### openapi paths
+
+### static HEADs
+   
+
+### templates list
+
+### templates/register
+
+### templates list (after register)
+NODE=  RATIO=
+
+### previews/render
+preview_id=
+
+### me/credits (πριν)
+
+### previews/commit
+
+### previews/committed
+
+### upload_logo
+./smoke_test.sh: line 82: UID: readonly variable
+PROD_ID=1
+
+### upload_product_images
+
+### mapping/rules
+
+### mapping/resolve
+
+=== DONE ===

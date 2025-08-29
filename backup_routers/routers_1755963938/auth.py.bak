@@ -1,0 +1,96 @@
+cp routers/auth.py routers/auth.py.bak 2>/dev/null || true
+cat > routers/auth.py <<'PY'
+# routers/auth.py — /register, /login (JSON), /token (form)
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr, constr
+from sqlalchemy.orm import Session
+from typing import Optional
+
+from database import get_db
+from token_module import create_access_token
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Μόνο User από models
+from models import User
+
+router = APIRouter(tags=["auth"])
+
+class RegisterIn(BaseModel):
+    email: EmailStr
+    password: constr(min_length=6)
+    username: Optional[str] = None
+
+class RegisterOut(BaseModel):
+    id: int
+    email: EmailStr
+    username: Optional[str]
+    is_active: bool
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    return db.query(User).filter(User.email == email).first()
+
+def create_user(db: Session, email: str, password: str, username: Optional[str] = None) -> User:
+    email_n = normalize_email(email)
+    if not username or not username.strip():
+        username = email_n.split("@")[0]
+    user = User(
+        email=email_n,
+        username=username.strip(),
+        hashed_password=get_password_hash(password),
+        is_active=True
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+@router.post("/register", response_model=RegisterOut, status_code=status.HTTP_201_CREATED)
+def register(payload: RegisterIn, db: Session = Depends(get_db)):
+    email_n = normalize_email(payload.email)
+    existing = get_user_by_email(db, email_n)
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    user = create_user(db, email_n, payload.password, payload.username)
+    return RegisterOut(id=user.id, email=user.email, username=user.username, is_active=user.is_active)
+
+@router.post("/login", response_model=TokenOut)
+def login(payload: LoginIn, db: Session = Depends(get_db)):
+    email_n = normalize_email(payload.email)
+    user = get_user_by_email(db, email_n)
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
+    token = create_access_token({"sub": user.email})
+    return TokenOut(access_token=token)
+
+from fastapi.security import OAuth2PasswordRequestForm
+@router.post("/token", response_model=TokenOut)
+def login_form(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    email_n = normalize_email(form_data.username)
+    user = get_user_by_email(db, email_n)
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
+    token = create_access_token({"sub": user.email})
+    return TokenOut(access_token=token)
+PY

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Σύνδεση • Autoposter AI</title>
+  <style>
+    :root { color-scheme: dark; }
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1420;color:#e6edf3;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
+    .card{width:360px;max-width:92vw;background:#0f1b2b;border:1px solid #1f2a3a;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:22px;}
+    h1{margin:0 0 16px;font-size:22px}
+    label{display:block;font-size:13px;margin:12px 0 6px;color:#a9b5c3}
+    input{width:100%;padding:12px 13px;border-radius:10px;border:1px solid #223047;background:#0c1522;color:#e6edf3;outline:none}
+    input:focus{border-color:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.15)}
+    .row{display:flex;gap:10px}
+    button{width:100%;margin-top:14px;padding:12px 14px;border:0;border-radius:10px;background:#34d399;color:#072; font-weight:600;cursor:pointer}
+    button:hover{filter:brightness(1.05)}
+    .muted{margin-top:10px;font-size:12px;color:#9aa7b5}
+    .error{margin-top:10px;font-size:13px;color:#ff8080}
+    .success{margin-top:10px;font-size:13px;color:#8fff9a}
+    .tabs{display:flex;gap:8px;margin-bottom:12px}
+    .tab{flex:1;padding:10px;border:1px solid #223047;border-radius:10px;text-align:center;cursor:pointer;background:#0c1522}
+    .tab.active{border-color:#34d399;background:#112233}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" id="tab-login">Σύνδεση</div>
+      <div class="tab" id="tab-register">Εγγραφή</div>
+    </div>
+
+    <div id="form">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
+
+      <div id="username-wrap" style="display:none">
+        <label for="username">Username (προαιρετικό)</label>
+        <input id="username" type="text" placeholder="username" autocomplete="nickname" />
+      </div>
+
+      <label for="password">Κωδικός</label>
+      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+
+      <button id="submit">Login</button>
+      <div id="msg" class="muted">Συμπλήρωσε και πάτα Login.</div>
+    </div>
+  </div>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const msg = $("#msg");
+    const tabLogin = $("#tab-login");
+    const tabRegister = $("#tab-register");
+    const usernameWrap = $("#username-wrap");
+    const submitBtn = $("#submit");
+
+    let mode = "login"; // ή "register"
+
+    function setMode(m){
+      mode = m;
+      tabLogin.classList.toggle("active", m==="login");
+      tabRegister.classList.toggle("active", m==="register");
+      usernameWrap.style.display = m==="register" ? "block" : "none";
+      submitBtn.textContent = m==="register" ? "Register" : "Login";
+      msg.className = "muted";
+      msg.textContent = m==="register" ? "Δημιούργησε λογαριασμό." : "Συμπλήρωσε και πάτα Login.";
+    }
+
+    tabLogin.onclick    = () => setMode("login");
+    tabRegister.onclick = () => setMode("register");
+
+    async function api(path, body){
+      const r = await fetch(path, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body)
+      });
+      const text = await r.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = {detail: text}; }
+      if(!r.ok) {
+        const d = data?.detail || r.statusText || "Error";
+        throw new Error(typeof d === "string" ? d : JSON.stringify(d));
+      }
+      return data;
+    }
+
+    async function onSubmit(){
+      msg.className = "muted";
+      msg.textContent = mode==="register" ? "Εγγραφή..." : "Σύνδεση...";
+      const email = $("#email").value.trim();
+      const password = $("#password").value;
+      const username = $("#username").value.trim() || undefined;
+
+      try{
+        if(mode==="register"){
+          await api("/register", { email, password, username });
+          msg.className = "success";
+          msg.textContent = "Η εγγραφή ολοκληρώθηκε. Συνδέσου τώρα.";
+          setMode("login");
+          return;
+        }
+        const data = await api("/login", { email, password });
+        if(!data?.access_token){ throw new Error("No token in response"); }
+        localStorage.setItem("token", data.access_token);
+        msg.className = "success";
+        msg.textContent = "Συνδέθηκες. Μεταφορά στο dashboard...";
+        location.href = "/dashboard.html";
+      }catch(e){
+        msg.className = "error";
+        msg.textContent = String(e.message || e);
+      }
+    }
+
+    submitBtn.onclick = (e)=>{ e.preventDefault(); onSubmit(); };
+
+    // Προσυμπλήρωση για test (σβήστο αν δεν το θες)
+    // $("#email").value = "demo11@example.com";
+    // $("#password").value = "secret123";
+  </script>
+</body>
+</html>

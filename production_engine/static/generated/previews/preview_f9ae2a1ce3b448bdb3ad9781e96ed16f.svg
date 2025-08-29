@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+
+  <defs>
+    <linearGradient id="bggrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#16a36f"/>
+      <stop offset="100%" stop-color="#0b7d5a"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8"/>
+    </filter>
+  </defs>
+
+
+  <rect width="100%" height="100%" fill="url(#bggrad)"/>
+  
+  <text x="60" y="100" font-size="64" font-weight="900" fill="#ffffff">Demo Προϊόν</text>
+  
+  
+    <g>
+      <rect x="800" y="1210" rx="16" ry="16" width="220" height="70" fill="black" fill-opacity="0.35"/>
+      <text x="1004" y="1258" text-anchor="end" font-size="40" font-weight="800" fill="#ffffff">€9.99</text>
+    </g>
+
+  <g id="preview_footer" data-preview-only="1">
+    <rect x="0" y="1270" width="1080" height="80" fill="black" fill-opacity="0.35"/>
+    <text x="60" y="1322" font-size="24" font-weight="600" fill="#ffffff" font-family="Inter,system-ui,sans-serif">
+      Preview • normal • 4:5 • 2025-08-22 06:08:25
+    </text>
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[user]
+	name = dimitris
+	email = you@example.com
+[lfs]
+	repositoryformatversion = 0
+[remote "backup"]
+	url = /home/smartpark/autoposter-ai-remote.git
+	fetch = +refs/heads/*:refs/remotes/backup/*
+[branch "master"]
+	remote = backup
+	merge = refs/heads/master
+[remote "github"]
+	url = https://github.com/sakistr1/autoposter-ai.git
+	fetch = +refs/heads/*:refs/remotes/github/*
+[remote "origin"]
+	url = /home/smartpark/autoposter-ai-remote.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[lfs "https://github.com/sakistr1/autoposter-ai.git/info/lfs"]
+	access = basic
+[remote "snap"]
+	url = /home/smartpark/autoposter-ai-backup-2025-08-25-1828.git
+	fetch = +refs/heads/*:refs/remotes/snap/*
+[branch "feature/ui-hardening"]
+	remote = origin
+	merge = refs/heads/feature/ui-hardening

@@ -1,0 +1,66 @@
+{
+  "defaults": {
+    "template_id": "image_left",
+    "brand_color": "#0fbf91",
+    "ratios": [
+      "1:1",
+      "4:5"
+    ]
+  },
+  "items": [
+    {
+      "title": "Test Product",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/z/600/600"
+    },
+    {
+      "title": "Test Product",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/z/600/600"
+    },
+    {
+      "title": "Test Product",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/z/600/600"
+    },
+    {
+      "title": "Test Product",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/z/600/600"
+    },
+    {
+      "title": "Test Product 5",
+      "price": "€12.9",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/tp5/600/600"
+    },
+    {
+      "title": "Test Product 4",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/tp4/600/600"
+    },
+    {
+      "title": "Test Product 2",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/y/600/600"
+    },
+    {
+      "title": "Test Product 2",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/y/600/600"
+    },
+    {
+      "title": "Test Product 2",
+      "price": "€9.99",
+      "cta": "Δες το",
+      "image_url": "https://picsum.photos/seed/y/600/600"
+    }
+  ]
+}

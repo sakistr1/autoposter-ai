@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <title>Autoposter Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Βάζει Authorization σε /me/* και /tengine/* (same-origin) -->
+  <script src="/static/js/authwrap.js?v=2"></script>
+  <style>
+    :root { --bg:#0f172a; --card:#0b1220; --muted:#94a3b8; --text:#e5e7eb; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --btn:#15bd92; --line:#1f2937; }
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(135deg,#0d2630,#0f0f1a);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.24);backdrop-filter:blur(6px)}
+    .chip{padding:6px 10px;border-radius:999px;font-size:12px;background:#1f2937;color:#cbd5e1;border:1px solid #263244}
+    .ok{border-color:#1c694f;color:#c6f6e6;background:rgba(16,185,129,.08)} .err{border-color:#5e2626;color:#fecaca;background:rgba(239,68,68,.08)}
+    .container{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px}
+    .panel{background:rgba(2,6,23,.7);border:1px solid #263244;border-radius:14px;padding:14px}
+    h2{margin:0 0 10px 0;font-size:18px}
+    h3{margin:14px 0 8px 0;font-size:15px;color:#cbd5e1}
+    label{display:block;margin:8px 0 6px;font-size:13px;color:#cbd5e1}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#e5e7eb}
+    textarea{min-height:70px;resize:vertical}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btn{appearance:none;border:0;border-radius:10px;padding:10px 14px;font-weight:700;color:white;background:var(--btn);cursor:pointer}
+    .btn.secondary{background:#334155} .btn.warn{background:#ef4444} .btn:disabled{opacity:.5;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+    .card{border:1px solid #263244;background:rgba(2,6,23,.6);border-radius:14px;overflow:hidden}
+    .muted{color:var(--muted);font-size:12px} .small{font-size:12px}
+    .previewBox{border:1px dashed #2a3a4d;border-radius:14px;min-height:180px;display:flex;align-items:center;justify-content:center;background:#07111e}
+    .toolbar{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px}
+    .toast{position:fixed;bottom:16px;right:16px;background:#0b1220;border:1px solid #1e2b3d;color:#d1fae5;padding:12px 14px;border-radius:12px;display:none}
+    .section{border-top:1px solid #1f2937;margin-top:10px;padding-top:10px}
+    a { color:#7dd3fc; text-decoration:none }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <div style="font-weight:800;font-size:18px">Autoposter — Dashboard</div>
+    <div class="muted small">Woo setup • Products sync • Subscription/Credits • Preview→Commit</div>
+  </div>
+  <div class="row">
+    <span id="chipToken" class="chip">Token: empty</span>
+    <span id="chipCredits" class="chip">Credits: —</span>
+    <span id="chipWoo" class="chip">Woo: unknown</span>
+    <button class="btn secondary" onclick="promptToken()">Set token</button>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Αριστερά: Ρυθμίσεις / Συνδρομή / Sync -->
+  <div class="panel">
+    <h2>Ρυθμίσεις & Συνδρομή</h2>
+
+    <div class="section">
+      <h3>WooCommerce Credentials</h3>
+      <label>Woo URL (π.χ. https://shop.example.com)</label>
+      <input id="wooUrl" placeholder="https://...">
+      <label>Consumer Key</label>
+      <input id="wooCk" placeholder="ck_xxxxxxxxx">
+      <label>Consumer Secret</label>
+      <input id="wooCs" placeholder="cs_xxxxxxxxx">
+      <label>Sync URL (προαιρετικό)</label>
+      <input id="syncUrl" placeholder="https://.../wp-json/... (optional)">
+      <div class="row" style="margin-top:8px">
+        <button class="btn" onclick="saveWoo()">Αποθήκευση</button>
+        <button class="btn secondary" onclick="loadWooIntoForm()">Φόρτωση από server</button>
+      </div>
+      <div class="muted small" id="wooStatus" style="margin-top:6px"></div>
+    </div>
+
+    <div class="section">
+      <h3>Sync Προϊόντων</h3>
+      <div class="row">
+        <button id="btnSync" class="btn" onclick="syncProducts()" disabled>Sync τώρα</button>
+        <span class="muted small">Ενεργό μόνο αν υπάρχουν Woo creds.</span>
+      </div>
+      <div class="muted small" id="syncMsg" style="margin-top:6px"></div>
+    </div>
+
+    <div class="section">
+      <h3>Συνδρομή</h3>
+      <div class="row">
+        <input id="planId" placeholder="plan_id (π.χ. price_ABC123)" style="flex:1">
+        <button class="btn" onclick="subscribe()">Subscribe</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn secondary" onclick="cancelSubscription()">Cancel subscription</button>
+      </div>
+      <div class="muted small" style="margin-top:6px">/me/subscribe (POST με {"plan_id":...}) → redirect σε checkout_url • /me/cancel-subscription (GET) → portal_url</div>
+    </div>
+
+    <div class="section">
+      <h3>Credits</h3>
+      <div class="row">
+        <button class="btn secondary" onclick="refreshCredits()">Ανανέωση Credits</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <input id="packId" placeholder="pack_id (π.χ. credits_100)" style="flex:1">
+        <button class="btn" onclick="buyCredits()">Αγορά Credits</button>
+      </div>
+      <div class="muted small" style="margin-top:6px">/me/buy-credits (POST με {"pack_id":...}) → redirect σε checkout_url</div>
+    </div>
+  </div>
+
+  <!-- Δεξιά: Products + Preview/Commit -->
+  <div class="panel">
+    <h2>Προϊόντα</h2>
+    <div class="row">
+      <select id="categorySelect" style="max-width:220px"></select>
+      <input id="searchInput" placeholder="Αναζήτηση ονόματος..." oninput="renderProducts()">
+      <button class="btn secondary" onclick="loadProducts()">Reload</button>
+    </div>
+    <div id="productsGrid" class="grid" style="margin-top:10px"></div>
+
+    <div class="section">
+      <h3>Παραγωγή Περιεχομένου (Preview → Commit)</h3>
+      <div class="row" style="margin-top:4px">
+        <select id="productSelect" style="flex:1"></select>
+        <button class="btn secondary" onclick="fillFromProduct()">Γέμισε πεδία</button>
+        <button class="btn secondary" onclick="clearForm()">Καθάρισε</button>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1">
+          <label>Τίτλος</label>
+          <input id="titleInput" placeholder="π.χ. Sneaker X">
+        </div>
+        <div style="width:160px">
+          <label>Τιμή</label>
+          <input id="priceInput" placeholder="€59.90">
+        </div>
+      </div>
+
+      <label style="margin-top:8px">Εικόνα (URL)</label>
+      <input id="imageInput" placeholder="https://...">
+
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1">
+          <label>Ύφος</label>
+          <select id="modeSelect">
+            <option value="normal">normal</option>
+            <option value="professional">professional</option>
+            <option value="humorous">humorous</option>
+          </select>
+        </div>
+        <div style="width:160px">
+          <label>Αναλογία</label>
+          <select id="ratioSelect">
+            <option value="4:5">4:5</option>
+            <option value="1:1">1:1</option>
+            <option value="9:16">9:16</option>
+          </select>
+        </div>
+      </div>
+
+      <label style="margin-top:8px">Caption (προαιρετικό)</label>
+      <textarea id="captionInput" placeholder="Κάτι σύντομο για το post..."></textarea>
+
+      <div class="toolbar">
+        <button id="btnPreview" class="btn" onclick="doPreview()">Preview (SVG)</button>
+        <button id="btnCommit" class="btn" onclick="doCommit()" disabled>Commit (−1 credit)</button>
+      </div>
+
+      <div class="muted" id="statusBox" style="margin-top:6px"></div>
+
+      <div class="previewBox" style="margin-top:10px" id="previewBox">
+        <span class="muted">Δεν υπάρχει προεπισκόπηση ακόμα</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  // ---------- Utils ----------
+  const $ = (id) => document.getElementById(id);
+  const toast = (msg) => { const el=$('toast'); el.textContent=msg; el.style.display='block'; setTimeout(()=>el.style.display='none',2500); };
+  const setStatus = (msg,type='info') => { const el=$('statusBox'); el.textContent=msg||''; el.style.color=(type==='err')?'#fecaca':(type==='ok'?'#a7f3d0':'#9ca3af'); };
+  const hasToken = () => !!(localStorage.getItem('token')||'');
+  const escapeHtml = (s)=>String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  function promptToken(){ const t=prompt('Token (JWT):', localStorage.getItem('token')||''); if(t){ localStorage.setItem('token',t); updateChips(); location.reload(); } }
+
+  // ---------- API ----------
+  async function apiGet(path){
+    const res = await fetch(path);
+    if(res.status===401) throw new Error('401 Unauthorized (βάλε token με localStorage.setItem("token","..."))');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+  async function apiPost(path, body){
+    const res = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+    if(res.status===401) throw new Error('401 Unauthorized (βάλε token με localStorage.setItem("token","..."))');
+    if(!res.ok){ let msg=`HTTP ${res.status}`; try{const j=await res.json(); if(j && j.detail) msg+=` — ${j.detail}`;}catch(_){} throw new Error(msg); }
+    return res.json();
+  }
+  async function apiGetRaw(path){ const res=await fetch(path); return res; } // για GET endpoints που γυρνούν redirect url σε JSON
+
+  // ---------- State ----------
+  let PRODUCTS=[]; let SELECTED_PRODUCT=null; let LAST_PREVIEW_URL=null; let HAS_WOO=false; let CREDITS=0;
+
+  // ---------- Chips ----------
+  function updateChips(){
+    $('chipToken').textContent = 'Token: ' + (hasToken() ? 'set' : 'empty');
+    $('chipToken').className = 'chip ' + (hasToken() ? 'ok' : 'err');
+    $('chipCredits').textContent = 'Credits: ' + (CREDITS ?? '—');
+    $('chipWoo').textContent = 'Woo: ' + (HAS_WOO ? 'OK' : 'missing');
+    $('chipWoo').className = 'chip ' + (HAS_WOO ? 'ok' : '');
+  }
+
+  // ---------- Loaders ----------
+  async function refreshCredits(){
+    const j = await apiGet('/me/credits');
+    CREDITS = j.credits ?? CREDITS;
+    updateChips(); updateCommitButton();
+  }
+  async function loadWooStatus(){
+    try{
+      const j = await apiGet('/me/woocommerce-credentials'); // αναμένει { has_credentials: bool, ...optional fields }
+      HAS_WOO = !!j.has_credentials;
+      $('wooStatus').textContent = HAS_WOO ? 'Υπάρχουν αποθηκευμένα Woo credentials.' : 'Δεν υπάρχουν Woo credentials.';
+      updateChips();
+    }catch(e){
+      $('wooStatus').textContent = 'Σφάλμα ανάκτησης Woo status: ' + e.message;
+    }
+    $('btnSync').disabled = !HAS_WOO;
+  }
+  async function loadWooIntoForm(){
+    try{
+      const j = await apiGet('/me/woocommerce-credentials');
+      $('wooUrl').value = j.woocommerce_url || '';
+      $('wooCk').value  = j.consumer_key     || '';
+      $('wooCs').value  = j.consumer_secret   || '';
+      $('syncUrl').value= j.sync_url          || '';
+      HAS_WOO = !!j.has_credentials;
+      $('wooStatus').textContent = HAS_WOO ? 'Φορτώθηκαν αποθηκευμένα στοιχεία.' : 'Δεν υπάρχουν αποθηκευμένα στοιχεία.';
+      updateChips(); $('btnSync').disabled = !HAS_WOO;
+    }catch(e){
+      $('wooStatus').textContent = 'Σφάλμα φόρτωσης: ' + e.message;
+    }
+  }
+  async function loadProducts(){
+    const j = await apiGet('/me/products');
+    PRODUCTS = Array.isArray(j) ? j : (j.items || []);
+    renderCategoryFilter(); renderProducts();
+  }
+
+  // ---------- Woo save / Sync ----------
+  async function saveWoo(){
+    try{
+      const body = {
+        woocommerce_url: $('wooUrl').value || null,
+        consumer_key: $('wooCk').value || null,
+        consumer_secret: $('wooCs').value || null,
+        sync_url: $('syncUrl').value || null
+      };
+      const j = await apiPost('/me/woocommerce-credentials', body);
+      toast('Αποθηκεύτηκαν τα Woo credentials'); HAS_WOO = true; updateChips(); $('btnSync').disabled = false;
+    }catch(e){ toast('Σφάλμα αποθήκευσης: '+e.message); }
+  }
+  async function syncProducts(){
+    try{
+      $('syncMsg').textContent = 'Γίνεται συγχρονισμός...';
+      const j = await apiPost('/me/products/sync', {}); // backend σου μπορεί να διαβάζει από τα αποθηκευμένα creds
+      $('syncMsg').textContent = 'OK: ολοκληρώθηκε ο συγχρονισμός.';
+      await loadProducts();
+    }catch(e){
+      $('syncMsg').textContent = 'Σφάλμα sync: '+e.message;
+    }
+  }
+
+  // ---------- Subscription / Credits ----------
+  async function subscribe(){
+    const plan = $('planId').value.trim();
+    if(!plan){ return toast('Δώσε plan_id'); }
+    try{
+      const j = await apiPost('/me/subscribe', { plan_id: plan });
+      if (j.checkout_url) window.location.href = j.checkout_url;
+      else toast('Subscribe: ολοκλήρωση (δεν δόθηκε checkout_url)');
+    }catch(e){ toast('Σφάλμα subscribe: '+e.message); }
+  }
+  async function cancelSubscription(){
+    try{
+      const res = await apiGetRaw('/me/cancel-subscription');
+      if(res.ok){
+        let url=''; try{ const j=await res.json(); url = j.portal_url || ''; }catch(_){}
+        if(url) window.location.href = url; else toast('Ακύρωση: ολοκληρώθηκε (χωρίς portal_url)');
+      }else{
+        toast('Σφάλμα ακύρωσης: HTTP '+res.status);
+      }
+    }catch(e){ toast('Σφάλμα ακύρωσης: '+e.message); }
+  }
+  async function buyCredits(){
+    const pack = $('packId').value.trim();
+    if(!pack){ return toast('Δώσε pack_id'); }
+    try{
+      const j = await apiPost('/me/buy-credits', { pack_id: pack });
+      if (j.checkout_url) window.location.href = j.checkout_url;
+      else toast('Αγορά credits: ολοκλήρωση (χωρίς checkout_url)');
+    }catch(e){ toast('Σφάλμα αγοράς credits: '+e.message); }
+  }
+
+  // ---------- Products render ----------
+  function renderCategoryFilter(){
+    const sel = $('categorySelect');
+    const cats = new Set(PRODUCTS.flatMap(p => ((p.categories||'').split(',').map(s=>s.trim())).filter(Boolean)));
+    sel.innerHTML = '<option value="">Όλες οι κατηγορίες</option>' + Array.from(cats).map(c=>`<option>${escapeHtml(c)}</option>`).join('');
+    sel.onchange = renderProducts;
+  }
+  function renderProducts(){
+    const grid = $('productsGrid');
+    const term = ($('searchInput').value||'').toLowerCase();
+    const cat = $('categorySelect').value || '';
+    const filtered = PRODUCTS.filter(p=>{
+      const okName = !term || String(p.name||'').toLowerCase().includes(term);
+      const okCat  = !cat  || (((p.categories||'').split(',').map(s=>s.trim())).includes(cat));
+      return okName && okCat;
+    });
+    // dropdown επιλογέα
+    const sel = $('productSelect');
+    sel.innerHTML = '<option value="">— Καμία —</option>' + filtered.map(p=>`<option value="${p.id}">${escapeHtml(p.name||('ID '+p.id))}</option>`).join('');
+
+    grid.innerHTML = filtered.map(p=>cardHtml(p)).join('') || '<div class="muted">Δεν βρέθηκαν προϊόντα.</div>';
+  }
+  function cardHtml(p){
+    const img = p.image_url ? `<img src="${p.image_url}" alt="" style="width:100%;height:100%;object-fit:cover">` : '<div class="muted" style="padding:20px;text-align:center">no image</div>';
+    const cats = (p.categories||'').split(',').map(s=>s.trim()).filter(Boolean).slice(0,3);
+    return `
+      <div class="card">
+        <div style="aspect-ratio:4/3;background:#0b1220;overflow:hidden">${img}</div>
+        <div style="padding:10px">
+          <div style="font-weight:700">${escapeHtml(p.name||('ID '+p.id))}</div>
+          <div class="muted">${p.price||''}</div>
+          <div style="margin-top:6px">${cats.map(c=>`<span class="chip" style="padding:3px 8px">${escapeHtml(c)}</span>`).join(' ')}</div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn small" onclick='selectProduct(${JSON.stringify(p.id)})'>Επιλογή</button>
+            <button class="btn secondary small" onclick='fillFromProductId(${JSON.stringify(p.id)})'>Γέμισε πεδία</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ---------- Selection / Form ----------
+  function selectProduct(pid){
+    const p = PRODUCTS.find(x=>String(x.id)===String(pid));
+    SELECTED_PRODUCT = p || null;
+    const sel = $('productSelect'); sel.value = p ? p.id : '';
+    toast(p ? `Επιλέχθηκε: ${p.name}` : 'Καμία επιλογή');
+  }
+  function fillFromProduct(){ const pid=$('productSelect').value; if(!pid){ toast('Διάλεξε προϊόν'); return; } fillFromProductId(pid); }
+  function fillFromProductId(pid){
+    const p = PRODUCTS.find(x=>String(x.id)===String(pid));
+    if(!p){ toast('Το προϊόν δεν βρέθηκε'); return; }
+    SELECTED_PRODUCT = p;
+    $('titleInput').value = p.name || '';
+    $('priceInput').value = p.price || '';
+    $('imageInput').value = p.image_url || '';
+    toast('Γέμισαν τα πεδία.');
+  }
+  function clearForm(){
+    $('productSelect').value=''; SELECTED_PRODUCT=null;
+    $('titleInput').value=''; $('priceInput').value=''; $('imageInput').value=''; $('captionInput').value='';
+    LAST_PREVIEW_URL=null; renderPreview(null); updateCommitButton();
+  }
+
+  // ---------- Preview / Commit ----------
+  function getBodyForPreview(){
+    return {
+      post_type:'image',
+      mode:$('modeSelect').value,
+      product_id: SELECTED_PRODUCT ? SELECTED_PRODUCT.id : null,
+      title:$('titleInput').value||null,
+      price:$('priceInput').value||null,
+      image_url:$('imageInput').value||null,
+      ratio:$('ratioSelect').value
+    };
+  }
+  async function doPreview(){
+    try{
+      setStatus('Φτιάχνω προεπισκόπηση…');
+      const j = await apiPost('/previews/render', getBodyForPreview());
+      LAST_PREVIEW_URL = j.preview_url;
+      renderPreview(LAST_PREVIEW_URL);
+      setStatus('OK: δημιουργήθηκε προεπισκόπηση','ok'); updateCommitButton();
+    }catch(e){ setStatus('Σφάλμα preview: '+e.message,'err'); }
+  }
+  function renderPreview(url){
+    const box=$('previewBox');
+    if(!url){ box.innerHTML='<span class="muted">Δεν υπάρχει προεπισκόπηση ακόμα</span>'; return; }
+    const src = url+(url.includes('?')?'&':'?')+'t='+Date.now(); // bust cache
+    box.innerHTML = `<img src="${src}" alt="preview" style="max-width:100%;height:auto;display:block">`;
+  }
+  function updateCommitButton(){ $('btnCommit').disabled = !(LAST_PREVIEW_URL && CREDITS>0); }
+  async function doCommit(){
+    if(!LAST_PREVIEW_URL){ toast('Πρώτα κάνε preview'); return; }
+    try{
+      setStatus('Κάνω commit…');
+      const body = { preview_url:LAST_PREVIEW_URL, post_type:'image', product_id: SELECTED_PRODUCT?SELECTED_PRODUCT.id:null, caption:$('captionInput').value||null };
+      const j = await apiPost('/previews/commit', body);
+      CREDITS = j.credits_left ?? CREDITS; updateChips(); updateCommitButton();
+      setStatus(`OK: post_id ${j.post_id}`,'ok'); toast('Commit ολοκληρώθηκε');
+    }catch(e){ setStatus('Σφάλμα commit: '+e.message,'err'); }
+  }
+
+  // ---------- Init ----------
+  async function init(){
+    updateChips();
+    if(!hasToken()){ toast('Δεν υπάρχει token. Βάλε: localStorage.setItem("token","JWT")'); }
+    try{ await refreshCredits(); }catch(e){ /* θα φανεί στην κονσόλα */ }
+    try{ await loadWooStatus(); }catch(e){}
+    try{ await loadProducts(); }catch(e){}
+  }
+  init();
+</script>
+</body>
+</html>

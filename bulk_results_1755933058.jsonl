@@ -1,0 +1,116 @@
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 61,
+  "png": "/static/generated/finals/final_3eddd869de1d4c82acd63a61494132b5.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 62,
+  "png": "/static/generated/finals/final_4158cd78ac6f45138fe77851d0f98fd5.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 63,
+  "png": "/static/generated/finals/final_08d33f689b0148aabef263027784bcf9.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 64,
+  "png": "/static/generated/finals/final_7b333768efb347f7b2223fb6dd3d590d.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 65,
+  "png": "/static/generated/finals/final_430eef9e15104b8d9fcd2f90eacac5bb.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 66,
+  "png": "/static/generated/finals/final_fa4bedbe5c28401b8f005beb67e95a81.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "1:1",
+  "post_id": 67,
+  "png": "/static/generated/finals/final_84f8559916fb48eab20d860b23e8a3f9.png"
+}
+{
+  "ok": true,
+  "title": "Test Product",
+  "ratio": "4:5",
+  "post_id": 68,
+  "png": "/static/generated/finals/final_e8869c1481814b37a2572cb0a0759ce1.png"
+}
+{
+  "ok": false,
+  "step": "commit",
+  "title": "Test Product 5",
+  "ratio": "1:1",
+  "status": "429",
+  "preview_url": "/static/generated/previews/preview_c7d267d3cad3768d6ba4445700624071.svg",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for commit (limit=20/3600s)\"}"
+}
+{
+  "ok": false,
+  "step": "commit",
+  "title": "Test Product 5",
+  "ratio": "4:5",
+  "status": "429",
+  "preview_url": "/static/generated/previews/preview_f836c1045b2c7bec84baf14719de1354.svg",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for commit (limit=20/3600s)\"}"
+}
+{
+  "ok": false,
+  "step": "commit",
+  "title": "Test Product 4",
+  "ratio": "1:1",
+  "status": "429",
+  "preview_url": "/static/generated/previews/preview_bc224bd39ca06b70a16b78bc22bedea2.svg",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for commit (limit=20/3600s)\"}"
+}
+{
+  "ok": false,
+  "step": "commit",
+  "title": "Test Product 4",
+  "ratio": "4:5",
+  "status": "429",
+  "preview_url": "/static/generated/previews/preview_da9fe68f96d839d40fddf7403fd354f4.svg",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for commit (limit=20/3600s)\"}"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "ratio": "1:1",
+  "status": "429",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for preview (limit=12/60s)\"}"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "ratio": "4:5",
+  "status": "429",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for preview (limit=12/60s)\"}"
+}
+{
+  "ok": false,
+  "step": "preview",
+  "title": "Test Product 2",
+  "ratio": "1:1",
+  "status": "429",
+  "resp_raw": "{\"detail\":\"Rate limit exceeded for preview (limit=12/60s)\"}"
+}

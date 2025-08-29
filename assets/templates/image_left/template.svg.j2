@@ -1,0 +1,73 @@
+{# --- Resolve ratios dict and key --- #}
+{% set RATIOS = (meta.ratios if meta is defined and meta.ratios is defined else {}) %}
+{% set ratio_key = (
+    ratio if ratio is defined else
+    (r if r is defined else
+    (rec.ratio if rec is defined and rec.ratio is defined else '4:5'))
+) %}
+{# ratio_key μπορεί να είναι "4:5" (string) ή ήδη dict. Πάρε dict από RATIOS. #}
+{% set Rtmp = (RATIOS.get(ratio_key) if ratio_key is string else ratio_key) %}
+{# Ασφαλής ανάγνωση width/height με defaults #}
+{% set W = (Rtmp and Rtmp.get('width'))  | default(1080, true) %}
+{% set H = (Rtmp and Rtmp.get('height')) | default(1350, true) %}
+
+{# --- Resolve fields safely --- #}
+{% set F    = (meta.fields if meta is defined and meta.fields is defined else {}) %}
+{% set IMG  = (F.get('image'))       | default({}, true) %}
+{% set TTL  = (F.get('title'))       | default({}, true) %}
+{% set PRC  = (F.get('price'))       | default({}, true) %}
+{% set CTA  = (F.get('cta'))         | default({}, true) %}
+{% set BRAND= (F.get('brand_color')) | default({}, true) %}
+
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="{{ W }}" height="{{ H }}"
+     viewBox="0 0 {{ W }} {{ H }}">
+  <!-- background -->
+  <rect x="0" y="0" width="{{ W }}" height="{{ H }}" fill="#ffffff" />
+
+  <!-- main image -->
+  {% if image_url %}
+  <image href="{{ image_url }}"
+         x="{{ IMG.get('x', 60) }}"
+         y="{{ IMG.get('y', 60) }}"
+         width="{{ IMG.get('w', 600) }}"
+         height="{{ IMG.get('h', 840) }}"
+         preserveAspectRatio="{{ 'xMidYMid ' ~ (IMG.get('fit','cover') == 'contain' and 'meet' or 'slice') }}"/>
+  {% endif %}
+
+  <!-- title -->
+  {% if title %}
+  <text x="{{ TTL.get('x', 720) }}"
+        y="{{ TTL.get('y', 520) }}"
+        font-family="sans-serif"
+        font-size="48"
+        text-anchor="{{ TTL.get('align','start') == 'center' and 'middle' or (TTL.get('align') == 'end' and 'end' or 'start') }}"
+        fill="#111111">
+    {{ title }}
+  </text>
+  {% endif %}
+
+  <!-- price -->
+  {% if price %}
+  <text x="{{ PRC.get('x', 720) }}"
+        y="{{ PRC.get('y', 620) }}"
+        font-family="sans-serif"
+        font-size="42"
+        text-anchor="{{ PRC.get('align','start') == 'center' and 'middle' or (PRC.get('align') == 'end' and 'end' or 'start') }}"
+        fill="{{ BRAND.get('value','#0fbf91') }}">
+    {{ price }}
+  </text>
+  {% endif %}
+
+  <!-- CTA (αν το δίνεις) -->
+  {% if cta %}
+  <text x="{{ CTA.get('x', 720) }}"
+        y="{{ CTA.get('y', 720) }}"
+        font-family="sans-serif"
+        font-size="36"
+        text-anchor="{{ CTA.get('align','start') == 'center' and 'middle' or (CTA.get('align') == 'end' and 'end' or 'start') }}"
+        fill="#333333">
+    {{ cta }}
+  </text>
+  {% endif %}
+</svg>

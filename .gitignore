@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+static/generated/
+static/uploads/tmp/
+*.mp4
+*.jpg
+*.webp

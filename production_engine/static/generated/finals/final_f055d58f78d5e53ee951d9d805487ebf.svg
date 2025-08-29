@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1350" viewBox="0 0 1080 1350">
+<defs><linearGradient id="ga2208b" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff0066"/><stop offset="100%" stop-color="#d10053"/></linearGradient></defs><rect x="0" y="0" width="1080" height="1350" fill="url(#ga2208b)"/>
+<rect x="64" y="243" width="952" height="607" rx="20" ry="20" fill="rgba(0,0,0,0.18)"/>
+<g transform="translate(64,944)">  <text x="0" y="0" font-family="Inter,system-ui,Segoe UI" font-size="74" font-weight="800" fill="#ffffff">Demo Προϊόν</text>  <text x="0" y="116" font-family="Inter,system-ui,Segoe UI" font-size="47" fill="#e6fffb">9.99</text></g>
+<g transform="translate(24,24)">  <rect rx="16" ry="16" width="76" height="40" fill="rgba(255,255,255,0.92)"/>  <text x="16" y="28" font-family="Inter,system-ui" font-size="20" font-weight="800" fill="#0b1020">-20%</text></g>
+<a xlink:href="https://example.com" target="_blank"><g transform="translate(360,1252)">  <rect rx="18" ry="18" width="360" height="62" fill="#111827" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>  <text x="180" y="42" text-anchor="middle" font-family="Inter,system-ui" font-size="24" font-weight="800" fill="#ffffff">Αγόρασέ το τώρα</text></g></a>
+</svg>

@@ -1,0 +1,45 @@
+EMAIL=demo10@gmail.com | token_len=139
+
+### healthz
+
+### openapi paths
+
+### static HEADs
+   
+
+### tengine/templates/register
+
+### tengine/templates
+
+### previews/render (raw)
+{
+  "preview_id": "prev_1756032732394",
+  "preview_url": "/static/generated/prev_1756032732394.png"
+}
+HTTP=200
+PID=prev_1756032732394
+
+### previews/commit (raw)
+{
+  "post_id": 133,
+  "preview_id": "prev_1756032732394",
+  "urls": [
+    "http://127.0.0.1:8000/static/generated/prev_1756032732394.png"
+  ],
+  "created_at": "2025-08-24T10:52:12.604035Z"
+}
+HTTP=200
+
+HEAD http://127.0.0.1:8000/static/generated/prev_1756032732394.png
+
+### me/credits (before)
+
+### me/use-credit
+
+### me/credits (after)
+
+### upload_logo
+DB_UID=
+!!! ΔΕΝ βρέθηκε χρήστης στη autoposter.db για demo10@gmail.com. Δείξε μου:
+  pwd; ls -l autoposter.db; sqlite3 autoposter.db "SELECT id,email FROM users;"
+STOP uploads.

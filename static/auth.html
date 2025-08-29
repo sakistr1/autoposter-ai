@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Σύνδεση — AutoPoster</title>
+  <style>
+    :root{--bg:#0b1620;--panel:#0f1f2b;--accent:#1f6feb;--ink:#e5e7eb;--muted:#9aa4af}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:480px;margin:8vh auto;padding:0 16px}
+    .card{background:var(--panel);border:1px solid #1f2c38;border-radius:14px;padding:20px}
+    .title{margin:0 0 12px 0}
+    label{display:block;margin:8px 0 4px;color:var(--muted)}
+    input{width:100%;padding:12px;border-radius:10px;border:1px solid #334155;background:#0c1a23;color:var(--ink)}
+    button{width:100%;padding:12px;border-radius:10px;border:0;background:var(--accent);color:#001;margin-top:12px;font-weight:700;cursor:pointer}
+    .err{color:#fda4af;min-height:1.2em;margin-top:8px}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h3 class="title">Σύνδεση</h3>
+      <label>Email</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
+      <label>Κωδικός</label>
+      <input id="password" type="password" placeholder="•••••••" autocomplete="current-password">
+      <button id="btnLogin">Login</button>
+      <div id="msg" class="err"></div>
+      <div class="muted" style="margin-top:10px">Με επιτυχία θα σε επιστρέψω στο dashboard.</div>
+    </div>
+  </div>
+
+<script>
+// ---- Ρυθμίσεις ----
+const TOKEN_KEY = 'token';
+const params = new URLSearchParams(location.search);
+const nextParam = params.get('next') || '/dashboard.html#products';
+
+const setToken = (t)=> localStorage.setItem(TOKEN_KEY, t);
+
+// Δοκιμάζει δύο backend patterns: /token (form) και /login (json).
+async function loginOAuth2(email, pass){
+  const body = new URLSearchParams({ username: email, password: pass });
+  const r = await fetch('/token',{ method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok || !j.access_token) throw new Error(j.detail || 'Login failed (/token)');
+  return j.access_token;
+}
+async function loginJson(email, pass){
+  const r = await fetch('/login',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pass }) });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok || !j.access_token) throw new Error(j.detail || 'Login failed (/login)');
+  return j.access_token;
+}
+
+async function doLogin(){
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('password').value;
+  const msg   = document.getElementById('msg');
+  msg.textContent='';
+  if(!email || !pass){ msg.textContent='Συμπλήρωσε email και κωδικό.'; return; }
+  try{
+    let token;
+    try { token = await loginOAuth2(email, pass); }
+    catch { token = await loginJson(email, pass); }
+    setToken(token);
+    localStorage.setItem('email', email);
+    // ΠΑΝΤΑ περνάω και ?token= στο redirect για cross-origin σενάρια
+    const nextUrl = new URL(nextParam, location.origin);
+    nextUrl.searchParams.set('token', token);
+    location.replace(nextUrl.toString());
+  }catch(e){
+    msg.textContent = 'Αποτυχία login: ' + (e.message || e);
+  }
+}
+
+document.getElementById('btnLogin').addEventListener('click', (e)=>{e.preventDefault(); doLogin();});
+document.getElementById('password').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doLogin(); } });
+</script>
+</body>
+</html>

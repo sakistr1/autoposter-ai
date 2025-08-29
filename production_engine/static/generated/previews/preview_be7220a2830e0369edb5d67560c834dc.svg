@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1080" viewBox="0 0 1080 1080">
+<defs><linearGradient id="g97f0ad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0fbf91"/><stop offset="100%" stop-color="#0c9c76"/></linearGradient></defs><rect x="0" y="0" width="1080" height="1080" fill="url(#g97f0ad)"/>
+<rect x="64" y="172" width="952" height="496" rx="20" ry="20" fill="rgba(0,0,0,0.18)"/>
+<g transform="translate(64,734)">  <text x="0" y="0" font-family="Inter,system-ui,Segoe UI" font-size="59" font-weight="800" fill="#ffffff">Limiter</text>  <text x="0" y="101" font-family="Inter,system-ui,Segoe UI" font-size="37" fill="#e6fffb"></text></g>
+<text x="1060" y="1060" text-anchor="end" font-family="Inter,system-ui" font-size="14" fill="rgba(255,255,255,0.6)">Preview</text>
+</svg>

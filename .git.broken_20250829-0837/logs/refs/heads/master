@@ -1,0 +1,2 @@
+12ef19b6c507bfe39ee665b3f0fdf73d2968be01 a66dff320173bd5a220772de73c2da665b148dc9 dimitris <you@example.com> 1756145325 +0000	commit: chore(secrets): ignore test_env & .env; scrubbed history
+a66dff320173bd5a220772de73c2da665b148dc9 8433395388204abef89d03cae8d67cd89d6cc5bf dimitris <you@example.com> 1756145481 +0000	commit: chore(security): detect-secrets pre-commit

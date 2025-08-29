@@ -1,0 +1,7 @@
+0000000000000000000000000000000000000000 8433395388204abef89d03cae8d67cd89d6cc5bf dimitris <you@example.com> 1756204821 +0000	branch: Created from HEAD
+8433395388204abef89d03cae8d67cd89d6cc5bf 26de91481173efcc2e02280ad91d97c2d6d19260 dimitris <you@example.com> 1756213919 +0000	commit: chore(security): detect-secrets baseline + no filenames + ignore tmp
+26de91481173efcc2e02280ad91d97c2d6d19260 4ee0c9797e97e92aed0dce078da2a6fcdb39e322 dimitris <you@example.com> 1756218270 +0000	commit: chore: E2E post flow green
+4ee0c9797e97e92aed0dce078da2a6fcdb39e322 f1dbb6468f752ecc3a07eedf45e8f8af78170079 dimitris <you@example.com> 1756219056 +0000	commit: chore: add smoke_e2e script
+f1dbb6468f752ecc3a07eedf45e8f8af78170079 0c43e0f8dc3ea42da6092f4dbad65525ef78c6d9 dimitris <you@example.com> 1756219191 +0000	commit: chore(security): stop tracking .token
+0c43e0f8dc3ea42da6092f4dbad65525ef78c6d9 5e1d4cc35205263d48e06d96b129a9150e92498e dimitris <you@example.com> 1756221240 +0000	commit: ui: products carousel + stable editor preview/commit
+5e1d4cc35205263d48e06d96b129a9150e92498e 199eaf0d35f485516a9a1c93704fc22e47f99e24 dimitris <you@example.com> 1756222932 +0000	commit: chore: engine e2e green

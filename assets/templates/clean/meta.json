@@ -1,0 +1,36 @@
+{
+  "id": "clean",
+  "name": "Clean Minimal",
+  "fields": {
+    "title": {"required": true, "max_chars": 120},
+    "price": {"required": false, "max_chars": 20},
+    "cta": {"required": false, "max_chars": 28},
+    "brand_color": {"required": false},
+    "image_url": {"required": true},
+    "logo_url": {"required": false}
+  },
+  "ratios": {
+    "4:5": {
+      "width": 1080,
+      "height": 1350,
+      "map": {
+        "image_url": {"kind": "image", "x": 100, "y": 220, "w": 880, "h": 780, "mode": "contain", "radius": 24},
+        "logo_url": {"kind": "image", "x": 60, "y": 60, "w": 180, "h": 80, "mode": "contain"},
+        "title": {"kind": "text", "x": 100, "y": 1060, "w": 880, "h": 120, "font_size": 48, "max_lines": 2, "align": "center", "color": "#111827", "bold": true},
+        "price": {"kind": "text", "x": 100, "y": 1200, "w": 440, "h": 80, "font_size": 44, "max_lines": 1, "align": "left", "color": "#10b981", "bold": true},
+        "cta": {"kind": "text", "x": 540, "y": 1200, "w": 440, "h": 80, "font_size": 36, "max_lines": 1, "align": "right", "color": "#374151"}
+      }
+    },
+    "1:1": {
+      "width": 1080,
+      "height": 1080,
+      "map": {
+        "image_url": {"kind": "image", "x": 120, "y": 180, "w": 840, "h": 640, "mode": "contain", "radius": 24},
+        "logo_url": {"kind": "image", "x": 60, "y": 60, "w": 180, "h": 80, "mode": "contain"},
+        "title": {"kind": "text", "x": 120, "y": 900, "w": 840, "h": 100, "font_size": 46, "max_lines": 2, "align": "center", "color": "#111827", "bold": true},
+        "price": {"kind": "text", "x": 120, "y": 1020, "w": 420, "h": 60, "font_size": 40, "max_lines": 1, "align": "left", "color": "#10b981", "bold": true},
+        "cta": {"kind": "text", "x": 540, "y": 1020, "w": 420, "h": 60, "font_size": 32, "max_lines": 1, "align": "right", "color": "#374151"}
+      }
+    }
+  }
+}
