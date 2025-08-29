@@ -1,0 +1,23 @@
+# Python venv
+.venv/
+venv/
+
+# Bytecode / cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE/OS junk
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# SQLite DB (αν δεν τα θέλεις στο repo)
+*.db
+
+# Generated assets
+static/generated/
