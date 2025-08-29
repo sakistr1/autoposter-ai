@@ -2,25 +2,20 @@
 set -euo pipefail
 
 BASE="${BASE:-http://127.0.0.1:8000}"
-TOKEN="${TOKEN:?βάλε TOKEN: export TOKEN='...'}"
+: "${TOKEN:?Set TOKEN first (export TOKEN=...)}"
 AUTHZ="Authorization: Bearer $TOKEN"
 
-PRODUCT_URL="${1:-https://example.com/your-product-page}"
-PLATFORM="${PLATFORM:-instagram}"
-EXECUTE="${EXECUTE:-true}"
+echo "== /ai/plan (demo url) =="
+jq -n '{"product_url":"https://example.com/demo/outfit1","platform":"instagram","ratio":"4:5"}' \
+| curl -sS -H "$AUTHZ" -H "Content-Type: application/json" \
+  --data-binary @- "$BASE/ai/plan" | tee /tmp/ai_plan_demo.json | jq '{absolute_url, plan}'
 
-BODY=$(jq -n \
-  --arg url "$PRODUCT_URL" \
-  --arg platform "$PLATFORM" \
-  --argjson execute $EXECUTE \
-  '{product_url:$url, platform:$platform, execute:$execute}')
+echo "== /ai/plan (static) =="
+jq -n '{"product_url":"/static/demo/outfit1.webp","platform":"instagram","ratio":"4:5"}' \
+| curl -sS -H "$AUTHZ" -H "Content-Type: application/json" \
+  --data-binary @- "$BASE/ai/plan" | tee /tmp/ai_plan_static.json | jq '{absolute_url, plan}'
 
-echo "$BODY" | curl -sS -H "$AUTHZ" -H "Content-Type: application/json" \
-  --data-binary @- "$BASE/ai/plan" | tee /tmp/ai_plan.json | jq
-
-URL=$(jq -r '.committed_url // empty' /tmp/ai_plan.json)
-if [ -n "$URL" ]; then
-  echo "Committed URL: $URL"
-  if command -v xdg-open >/dev/null; then xdg-open "$URL" & fi
-  if command -v gio >/dev/null; then gio open "$URL" & fi
-fi
+echo "== open last =="
+URL=$(jq -r '.absolute_url // empty' /tmp/ai_plan_static.json)
+[ -z "$URL" ] && URL=$(jq -r '.absolute_url // empty' /tmp/ai_plan_demo.json)
+[ -n "$URL" ] && (xdg-open "$URL" >/dev/null 2>&1 || gio open "$URL" >/dev/null 2>&1 || true)

@@ -6653,3 +6653,127 @@ Moviepy - video ready static/generated/prev_1756456212810.mp4
 INFO:     127.0.0.1:37982 - "POST /previews/render HTTP/1.1" 200 OK
 INFO:     127.0.0.1:59528 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
 INFO:     127.0.0.1:54158 - "GET /previews/committed?limit=1&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43924 - "POST /previews/render HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:43934 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:43938 - "POST /previews/render HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:43950 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:43964 - "GET /previews/committed?limit=3&offset=0 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:36966 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:36976 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48892 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44640 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
+Moviepy - Building video static/generated/prev_1756457093754.mp4.
+MoviePy - Writing audio in prev_1756457093754TEMP_MPY_wvf_snd.mp4
+chunk:   0%|          | 0/133 [00:00<?, ?it/s, now=None]chunk:  31%|███       | 41/133 [00:00<00:00, 408.38it/s, now=None]chunk:  82%|████████▏ | 109/133 [00:00<00:00, 256.59it/s, now=None]                                                                   MoviePy - Done.
+Moviepy - Writing video static/generated/prev_1756457093754.mp4
+
+t:   0%|          | 0/144 [00:00<?, ?it/s, now=None]t:   6%|▌         | 8/144 [00:00<00:01, 75.52it/s, now=None]t:  11%|█         | 16/144 [00:00<00:01, 78.01it/s, now=None]t:  17%|█▋        | 24/144 [00:00<00:01, 74.66it/s, now=None]t:  22%|██▏       | 32/144 [00:00<00:01, 74.44it/s, now=None]t:  28%|██▊       | 40/144 [00:00<00:01, 73.29it/s, now=None]t:  33%|███▎      | 48/144 [00:00<00:01, 67.43it/s, now=None]t:  38%|███▊      | 55/144 [00:00<00:01, 49.94it/s, now=None]t:  42%|████▏     | 61/144 [00:01<00:02, 29.46it/s, now=None]t:  46%|████▌     | 66/144 [00:01<00:02, 31.19it/s, now=None]t:  49%|████▉     | 71/144 [00:01<00:02, 34.32it/s, now=None]t:  53%|█████▎    | 76/144 [00:01<00:01, 37.35it/s, now=None]t:  56%|█████▋    | 81/144 [00:01<00:01, 37.86it/s, now=None]t:  60%|█████▉    | 86/144 [00:01<00:01, 37.12it/s, now=None]t:  63%|██████▎   | 91/144 [00:02<00:01, 34.98it/s, now=None]t:  66%|██████▌   | 95/144 [00:02<00:01, 34.59it/s, now=None]t:  69%|██████▉   | 99/144 [00:02<00:01, 34.53it/s, now=None]t:  72%|███████▏  | 103/144 [00:02<00:01, 35.30it/s, now=None]t:  74%|███████▍  | 107/144 [00:02<00:01, 32.41it/s, now=None]t:  77%|███████▋  | 111/144 [00:02<00:01, 32.45it/s, now=None]t:  80%|███████▉  | 115/144 [00:02<00:00, 33.02it/s, now=None]t:  83%|████████▎ | 119/144 [00:02<00:00, 33.96it/s, now=None]t:  85%|████████▌ | 123/144 [00:03<00:00, 34.80it/s, now=None]t:  88%|████████▊ | 127/144 [00:03<00:00, 35.30it/s, now=None]t:  91%|█████████ | 131/144 [00:03<00:00, 35.45it/s, now=None]t:  94%|█████████▍| 135/144 [00:03<00:00, 35.64it/s, now=None]t:  97%|█████████▋| 139/144 [00:03<00:00, 35.61it/s, now=None]t:  99%|█████████▉| 143/144 [00:03<00:00, 36.12it/s, now=None]                                                              Moviepy - Done !
+Moviepy - video ready static/generated/prev_1756457093754.mp4
+INFO:     127.0.0.1:60142 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52730 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46742 - "GET /previews/committed?limit=5&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57226 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:57242 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49556 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49556 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49550 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35802 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:37174 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:46062 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46062 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46054 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53938 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+/home/smartpark/autoposter-ai-restored/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     [routers] previews loaded with forced auth
+INFO:     Started server process [22018]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     127.0.0.1:52060 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39620 - "POST /ai/plan HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:41724 - "POST /ai/plan HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:60560 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:60562 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39520 - "GET /auth.html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56126 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56126 - "GET /dashboard.html?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMTBAZ21haWwuY29tIiwiZXhwIjoxNzU2NDYxMzEzfQ.c0fZYZLV_elqwI0Bp75sOELX08IOvQiAXRtyeJeymhQ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56126 - "GET /me/credits HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56130 - "GET /previews/committed?limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56138 - "GET /static/demo/shoes2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56130 - "GET /static/demo/outfit2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56130 - "GET /static/generated/post_1756457843998.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56138 - "GET /static/generated/post_1756457659438.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56150 - "GET /static/generated/post_1756450908863.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56126 - "GET /static/generated/post_1756457107113.mp4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56140 - "GET /static/generated/post_1756456444085.mp4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56160 - "GET /static/generated/post_1756450898919.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56130 - "GET /static/generated/post_1756450429435.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56150 - "GET /static/generated/post_1756450418349.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56160 - "GET /static/generated/post_1756450399919.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56138 - "GET /static/generated/post_1756449385912.mp4 HTTP/1.1" 304 Not Modified
+Moviepy - Building video static/generated/prev_1756460443827.mp4.
+MoviePy - Writing audio in prev_1756460443827TEMP_MPY_wvf_snd.mp4
+chunk:   0%|          | 0/265 [00:00<?, ?it/s, now=None]chunk:  20%|██        | 54/265 [00:00<00:00, 536.00it/s, now=None]chunk:  41%|████      | 109/265 [00:00<00:00, 293.72it/s, now=None]chunk:  55%|█████▍    | 145/265 [00:00<00:00, 312.05it/s, now=None]chunk:  68%|██████▊   | 181/265 [00:00<00:00, 297.86it/s, now=None]chunk:  82%|████████▏ | 216/265 [00:00<00:00, 312.42it/s, now=None]chunk:  94%|█████████▍| 250/265 [00:00<00:00, 311.78it/s, now=None]                                                                   MoviePy - Done.
+Moviepy - Writing video static/generated/prev_1756460443827.mp4
+
+t:   0%|          | 0/360 [00:00<?, ?it/s, now=None]t:   2%|▏         | 6/360 [00:00<00:06, 55.76it/s, now=None]t:   4%|▎         | 13/360 [00:00<00:05, 62.31it/s, now=None]t:   6%|▌         | 21/360 [00:00<00:04, 68.04it/s, now=None]t:   8%|▊         | 28/360 [00:00<00:04, 66.70it/s, now=None]t:  10%|▉         | 35/360 [00:00<00:05, 60.23it/s, now=None]t:  12%|█▏        | 43/360 [00:00<00:04, 65.36it/s, now=None]t:  14%|█▍        | 50/360 [00:00<00:04, 65.31it/s, now=None]t:  16%|█▌        | 57/360 [00:00<00:04, 64.84it/s, now=None]t:  18%|█▊        | 64/360 [00:01<00:04, 59.30it/s, now=None]t:  20%|█▉        | 71/360 [00:01<00:05, 51.82it/s, now=None]t:  21%|██▏       | 77/360 [00:01<00:06, 46.59it/s, now=None]t:  23%|██▎       | 82/360 [00:01<00:06, 45.08it/s, now=None]t:  24%|██▍       | 87/360 [00:01<00:06, 41.11it/s, now=None]t:  26%|██▌       | 92/360 [00:01<00:06, 38.72it/s, now=None]t:  27%|██▋       | 96/360 [00:01<00:07, 37.29it/s, now=None]t:  28%|██▊       | 100/360 [00:02<00:07, 33.26it/s, now=None]t:  29%|██▉       | 104/360 [00:02<00:07, 33.11it/s, now=None]t:  30%|███       | 108/360 [00:02<00:07, 32.97it/s, now=None]t:  31%|███       | 112/360 [00:02<00:07, 33.35it/s, now=None]t:  32%|███▏      | 116/360 [00:02<00:07, 32.89it/s, now=None]t:  34%|███▎      | 121/360 [00:02<00:06, 35.37it/s, now=None]t:  35%|███▍      | 125/360 [00:02<00:07, 33.36it/s, now=None]t:  36%|███▌      | 129/360 [00:02<00:07, 32.73it/s, now=None]t:  37%|███▋      | 133/360 [00:03<00:07, 31.05it/s, now=None]t:  38%|███▊      | 137/360 [00:03<00:07, 31.76it/s, now=None]t:  39%|███▉      | 141/360 [00:03<00:06, 32.75it/s, now=None]t:  40%|████      | 145/360 [00:03<00:06, 31.23it/s, now=None]t:  42%|████▏     | 150/360 [00:03<00:06, 33.61it/s, now=None]INFO:     127.0.0.1:54064 - "GET /auth.html HTTP/1.1" 200 OK
+t:  43%|████▎     | 154/360 [00:03<00:09, 21.62it/s, now=None]t:  44%|████▎     | 157/360 [00:04<00:14, 13.98it/s, now=None]t:  44%|████▍     | 160/360 [00:04<00:16, 11.89it/s, now=None]t:  45%|████▌     | 162/360 [00:05<00:18, 10.98it/s, now=None]t:  46%|████▌     | 164/360 [00:05<00:19, 10.15it/s, now=None]t:  46%|████▌     | 166/360 [00:05<00:18, 10.42it/s, now=None]t:  47%|████▋     | 169/360 [00:05<00:14, 13.19it/s, now=None]t:  48%|████▊     | 173/360 [00:05<00:11, 16.32it/s, now=None]t:  49%|████▉     | 176/360 [00:05<00:11, 16.15it/s, now=None]t:  49%|████▉     | 178/360 [00:06<00:12, 15.13it/s, now=None]t:  50%|█████     | 180/360 [00:06<00:11, 16.01it/s, now=None]t:  51%|█████     | 182/360 [00:06<00:10, 16.66it/s, now=None]t:  51%|█████▏    | 185/360 [00:06<00:09, 18.76it/s, now=None]t:  52%|█████▎    | 189/360 [00:06<00:07, 22.78it/s, now=None]t:  53%|█████▎    | 192/360 [00:06<00:08, 20.32it/s, now=None]t:  54%|█████▍    | 196/360 [00:06<00:06, 23.60it/s, now=None]t:  56%|█████▌    | 201/360 [00:06<00:05, 28.19it/s, now=None]t:  57%|█████▋    | 205/360 [00:07<00:05, 27.81it/s, now=None]INFO:     127.0.0.1:54064 - "POST /token HTTP/1.1" 200 OK
+t:  58%|█████▊    | 208/360 [00:07<00:05, 25.72it/s, now=None]INFO:     127.0.0.1:54064 - "GET /dashboard.html?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMTBAZ21haWwuY29tIiwiZXhwIjoxNzU2NDYxMzUyfQ.qMVDNkpX-NIXQtd8i2vasiQYu7EY7ANVR5KiSemV_8A HTTP/1.1" 200 OK
+t:  59%|█████▊    | 211/360 [00:07<00:08, 18.46it/s, now=None]INFO:     127.0.0.1:54086 - "GET /static/demo/shoes2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54090 - "GET /static/demo/outfit2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54064 - "GET /me/credits HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54074 - "GET /previews/committed?limit=10 HTTP/1.1" 200 OK
+t:  59%|█████▉    | 214/360 [00:07<00:11, 12.56it/s, now=None]t:  60%|██████    | 216/360 [00:08<00:13, 10.70it/s, now=None]t:  61%|██████    | 218/360 [00:08<00:13, 10.27it/s, now=None]t:  61%|██████    | 220/360 [00:08<00:12, 11.16it/s, now=None]t:  62%|██████▏   | 222/360 [00:08<00:11, 11.80it/s, now=None]t:  62%|██████▎   | 225/360 [00:08<00:09, 14.97it/s, now=None]t:  64%|██████▎   | 229/360 [00:08<00:06, 19.94it/s, now=None]t:  64%|██████▍   | 232/360 [00:09<00:08, 14.51it/s, now=None]t:  65%|██████▌   | 234/360 [00:09<00:09, 12.75it/s, now=None]t:  66%|██████▌   | 237/360 [00:09<00:07, 15.45it/s, now=None]t:  67%|██████▋   | 241/360 [00:09<00:06, 19.30it/s, now=None]t:  68%|██████▊   | 246/360 [00:09<00:04, 24.33it/s, now=None]t:  69%|██████▉   | 250/360 [00:09<00:04, 26.60it/s, now=None]t:  70%|███████   | 253/360 [00:10<00:03, 26.97it/s, now=None]t:  71%|███████▏  | 257/360 [00:10<00:03, 29.24it/s, now=None]t:  72%|███████▎  | 261/360 [00:10<00:03, 27.19it/s, now=None]t:  73%|███████▎  | 264/360 [00:10<00:03, 26.38it/s, now=None]t:  74%|███████▍  | 268/360 [00:10<00:03, 27.45it/s, now=None]t:  76%|███████▌  | 272/360 [00:10<00:03, 29.22it/s, now=None]t:  77%|███████▋  | 277/360 [00:10<00:02, 32.11it/s, now=None]t:  78%|███████▊  | 282/360 [00:10<00:02, 35.11it/s, now=None]t:  80%|███████▉  | 287/360 [00:11<00:01, 37.36it/s, now=None]t:  81%|████████  | 291/360 [00:11<00:02, 32.45it/s, now=None]t:  82%|████████▏ | 295/360 [00:11<00:02, 30.83it/s, now=None]t:  83%|████████▎ | 299/360 [00:11<00:02, 30.32it/s, now=None]t:  84%|████████▍ | 303/360 [00:11<00:01, 29.42it/s, now=None]t:  85%|████████▌ | 307/360 [00:11<00:01, 30.94it/s, now=None]t:  87%|████████▋ | 312/360 [00:11<00:01, 33.15it/s, now=None]t:  88%|████████▊ | 316/360 [00:12<00:01, 34.76it/s, now=None]t:  89%|████████▉ | 321/360 [00:12<00:01, 33.16it/s, now=None]t:  91%|█████████ | 326/360 [00:12<00:00, 36.38it/s, now=None]t:  92%|█████████▏| 330/360 [00:12<00:00, 33.35it/s, now=None]INFO:     127.0.0.1:54064 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54086 - "GET /static/generated/prev_1756460457306.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54074 - "GET /previews/committed?limit=10 HTTP/1.1" 200 OK
+t:  93%|█████████▎| 334/360 [00:12<00:01, 19.74it/s, now=None]t:  94%|█████████▎| 337/360 [00:13<00:01, 21.01it/s, now=None]t:  95%|█████████▍| 341/360 [00:13<00:00, 24.54it/s, now=None]t:  96%|█████████▌| 346/360 [00:13<00:00, 29.14it/s, now=None]t:  98%|█████████▊| 351/360 [00:13<00:00, 32.99it/s, now=None]t:  99%|█████████▊| 355/360 [00:13<00:00, 30.25it/s, now=None]t: 100%|█████████▉| 359/360 [00:13<00:00, 30.78it/s, now=None]                                                              Moviepy - Done !
+Moviepy - video ready static/generated/prev_1756460443827.mp4
+INFO:     127.0.0.1:60308 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:60316 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43824 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43824 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43812 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35176 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:34360 - "GET /openapi.json HTTP/1.1" 200 OK
+/home/smartpark/autoposter-ai-restored/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     [routers] previews loaded with forced auth
+INFO:     Started server process [31218]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     127.0.0.1:40122 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40122 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40106 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44892 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:48444 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:48458 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42878 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42878 - "POST /previews/commit?wait=true&timeout=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42868 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56086 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [16599]
+/home/smartpark/autoposter-ai-restored/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     [routers] previews loaded with forced auth
+INFO:     Started server process [32576]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:43564 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59524 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:59536 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58144 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51664 - "POST /ai/plan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52472 - "GET /static/generated/post_1756463020982.webp HTTP/1.1" 200 OK
