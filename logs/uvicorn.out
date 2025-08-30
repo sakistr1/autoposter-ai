@@ -6777,3 +6777,110 @@ INFO:     127.0.0.1:59536 - "POST /token HTTP/1.1" 200 OK
 INFO:     127.0.0.1:58144 - "POST /ai/plan HTTP/1.1" 200 OK
 INFO:     127.0.0.1:51664 - "POST /ai/plan HTTP/1.1" 200 OK
 INFO:     127.0.0.1:52472 - "GET /static/generated/post_1756463020982.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49226 - "GET /auth.html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33804 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33804 - "GET /dashboard.html?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMTBAZ21haWwuY29tIiwiZXhwIjoxNzU2NDY2MjczfQ.hA7G5NKhM9iXLPCHrf_lPIYLaiDJ1PkdhFY0YbAsvuo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46186 - "GET /auth.html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46186 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46186 - "GET /dashboard.html?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMTBAZ21haWwuY29tIiwiZXhwIjoxNzU2NDY2ODMzfQ.siDI8BxxxAQDuHvkxcUAAqSSN9l5ArqB4ikm7T0TsBM HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46186 - "GET /me/credits HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46200 - "GET /static/demo/shoes2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46186 - "GET /static/demo/outfit2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46214 - "GET /previews/committed?limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46200 - "GET /static/generated/post_1756461807569.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46214 - "GET /static/generated/post_1756462259081.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46186 - "GET /static/generated/post_1756461291100.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46214 - "GET /static/generated/post_1756457843998.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:46230 - "GET /static/generated/post_1756457659438.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:46242 - "GET /static/generated/post_1756457107113.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:46200 - "GET /static/generated/post_1756456444085.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:46238 - "GET /static/generated/post_1756450908863.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:46214 - "GET /static/generated/post_1756450898919.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:46200 - "GET /static/generated/post_1756450429435.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:46252 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46264 - "GET /static/generated/prev_1756465942533.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46252 - "GET /previews/committed?limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39518 - "GET /dashboard.html?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMTBAZ21haWwuY29tIiwiZXhwIjoxNzU2NDY2ODMzfQ.siDI8BxxxAQDuHvkxcUAAqSSN9l5ArqB4ikm7T0TsBM HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39530 - "GET /static/demo/shoes1.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39560 - "GET /static/demo/outfit1.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39564 - "GET /static/demo/laptop.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39518 - "GET /me/credits HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:39568 - "GET /static/demo/shoes2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:39544 - "GET /previews/committed?limit=10 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:39518 - "GET /static/demo/shoes3.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39568 - "GET /static/demo/outfit2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:39560 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45250 - "POST /previews/render HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:45250 - "GET /auth.html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45250 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45250 - "GET /dashboard.html?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMTBAZ21haWwuY29tIiwiZXhwIjoxNzU2NDcwMjkxfQ.dusVMLclQOXcGVQvePR9WaFxC07f63GsQR7ZaiOK_1A HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45250 - "GET /me/credits HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45250 - "GET /static/demo/shoes2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58144 - "GET /static/demo/outfit2.jpg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58136 - "GET /previews/committed?limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58136 - "GET /static/generated/post_1756462259081.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58136 - "GET /static/generated/post_1756461807569.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58144 - "GET /static/generated/post_1756461291100.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:45250 - "GET /static/generated/post_1756457843998.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58136 - "GET /static/generated/post_1756457659438.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58144 - "GET /static/generated/post_1756450908863.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58136 - "GET /static/generated/post_1756450898919.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58136 - "GET /static/generated/post_1756450429435.webp HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58144 - "GET /static/generated/post_1756457107113.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58152 - "GET /static/generated/post_1756456444085.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:48084 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48100 - "GET /static/generated/prev_1756469401907.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48084 - "GET /previews/committed?limit=10 HTTP/1.1" 200 OK
+/home/smartpark/autoposter-ai-restored/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     [routers] previews loaded with forced auth
+INFO:     Started server process [71541]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55210 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:55218 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57642 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:50342 - "POST /previews/render HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:52822 - "POST /previews/commit?preview_id= HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:45586 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41980 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [71541]
+/home/smartpark/autoposter-ai-restored/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     [routers] previews loaded with forced auth
+INFO:     Started server process [72945]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:39912 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:45480 - "POST /previews/render HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:57758 - "POST /previews/commit?preview_id= HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:53582 - "GET /previews/committed?limit=5&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53584 - "GET /me/credits HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37438 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58316 - "POST /login HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:58318 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60876 - "POST /ai/plan HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:55322 - "POST /previews/render HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:55328 - "POST /previews/commit?preview_id= HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:60998 - "GET /tengine/templates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39862 - "GET /tengine/templates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42582 - "POST /previews/render HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:46322 - "POST /previews/render HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:42762 - "POST /previews/render HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:59026 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47520 - "POST /assets/upload HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53026 - "POST /previews/render HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53032 - "POST /previews/commit?preview_id=prev_1756480495905 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:53046 - "GET /previews/committed?limit=5&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53062 - "GET /me/credits HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [72945]

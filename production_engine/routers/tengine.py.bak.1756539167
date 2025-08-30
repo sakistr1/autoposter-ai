@@ -1,0 +1,76 @@
+# production_engine/routers/tengine.py
+from fastapi import APIRouter, Request, HTTPException
+from pydantic import BaseModel, RootModel, Field, Field
+from typing import Any, Dict, Optional
+import httpx
+
+router = APIRouter(prefix="/tengine", tags=["tengine"])
+
+# --- Είσοδοι (χαλαρά μοντέλα ώστε να περνάει ό,τι έστελνες ήδη) ---
+
+class Mapping(BaseModel):
+    # αφήνουμε ελεύθερα τα keys για να μην σπάει τίποτα (title, price, etc)
+    __root__: Dict[str, Any]
+
+class TEnginePreviewIn(BaseModel):
+    platform: Optional[str] = None
+    ratio: Optional[str] = None
+    mode: Optional[str] = Field(default="normal")
+    image_url: Optional[str] = None
+    mapping: Optional[Mapping] = None
+    watermark: Optional[bool] = None
+    return_absolute_url: Optional[bool] = None
+    # support και template / template_id αν τα περάσεις
+    template: Optional[str] = None
+    template_id: Optional[int] = None
+
+class TEngineCommitIn(BaseModel):
+    preview_id: Optional[str] = None
+    preview_url: Optional[str] = None
+
+# --- Helper: proxy στον ίδιο server ---
+
+async def _forward_json(
+    request: Request,
+    path: str,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    base = str(request.base_url).rstrip("/")  # π.χ. http://127.0.0.1:8000
+    url = f"{base}{path}"
+
+    # Προωθούμε Authorization header (Bearer …) για να περάσει ο έλεγχος
+    headers = {}
+    auth = request.headers.get("authorization")
+    if auth:
+        headers["authorization"] = auth
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=resp.status_code, detail=resp.json().get("detail", resp.text))
+    return resp.json()
+
+# --- Endpoints ---
+
+@router.post("/preview")
+async def tengine_preview(req: Request, body: TEnginePreviewIn):
+    """
+    Proxy στο /previews/render – δέχεται ό,τι έστελνες ήδη.
+    """
+    # Μετατρέπουμε το pydantic σε σκέτο dict και καθαρίζουμε τα None
+    data = body.dict(exclude_none=True)
+    # Το mapping μπορεί να είναι Mapping(__root__=...), το ισιώνουμε σε dict
+    if "mapping" in data and isinstance(data["mapping"], dict) and "__root__" in data["mapping"]:
+        data["mapping"] = data["mapping"]["__root__"]
+
+    return await _forward_json(req, "/previews/render", data)
+
+@router.post("/commit")
+async def tengine_commit(req: Request, body: TEngineCommitIn):
+    """
+    Proxy στο /previews/commit – δώσε είτε preview_id είτε preview_url.
+    """
+    data = body.dict(exclude_none=True)
+    if not data:
+        raise HTTPException(status_code=422, detail="preview_id or preview_url is required")
+    return await _forward_json(req, "/previews/commit", data)

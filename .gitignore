@@ -6,3 +6,9 @@ static/uploads/tmp/
 *.mp4
 *.jpg
 *.webp
+
+# local artifacts
+.env
+static/generated/
+__pycache__/
+*.webp

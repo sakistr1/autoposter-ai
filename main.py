@@ -42,7 +42,7 @@ def favicon():
                     media_type="image/svg+xml")
 
 @app.get("/healthz")
-def healthz(): 
+def healthz():
     return {"ok": True}
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -118,14 +118,14 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-def _norm(e: str) -> str: 
+def _norm(e: str) -> str:
     return (e or "").strip().lower()
 
-def _hash(p: str) -> str: 
+def _hash(p: str) -> str:
     return pwd_context.hash(p)
 
 def _verify(raw: str, hashed: Optional[str]) -> bool:
-    if not hashed: 
+    if not hashed:
         return False
     try:
         return pwd_context.verify(raw, hashed)
@@ -218,13 +218,45 @@ try:
 except Exception as e:
     log.error("[routers] previews failed -> %s", e)
 
-# >>>>>>> AI ROUTER <<<<<<<
-from production_engine.routers.ai import router as ai_router
-app.include_router(ai_router)
+# >>>>>>> (ΠΑΛΙΟ) AI ROUTER — ΑΠΕΝΕΡΓΟΠΟΙΗΜΕΝΟ για να μη συγκρούεται με το /ai/plan μας <<<<<<<
+# from production_engine.routers.ai import router as ai_router
+# app.include_router(ai_router)
+# Αν το χρειαστείς παράλληλα, βάλε prefix για να μη συγκρούεται:
+# from production_engine.routers.ai import router as ai_router
+# app.include_router(ai_router, prefix="/ai_old")
 
 # >>>>>>> MANUAL ROUTER <<<<<<<
 from production_engine.routers.manual import router as manual_router
 app.include_router(manual_router)
+
+# >>>>>>> AI PLAN ROUTER (ΜΟΝΟ αυτό εκθέτει /ai/plan) <<<<<<<
+from production_engine.routers import ai_plan
+app.include_router(ai_plan.router, prefix="/ai", tags=["ai"])
+
+# >>>>>>> TENGINE ROUTER (ΑΝΘΕΚΤΙΚΟ include) <<<<<<<
+try:
+    # πιο συνηθισμένη περίπτωση
+    from production_engine.routers.tengine import router as tengine_router
+except Exception:
+    try:
+        # εναλλακτικό όνομα
+        from production_engine.routers.tengine import tengine_router  # type: ignore
+    except Exception:
+        try:
+            # πιάσε module και βρες router αντικείμενο δυναμικά
+            from production_engine.routers import tengine as _ten_mod  # type: ignore
+            tengine_router = getattr(_ten_mod, "router", None) \
+                             or getattr(_ten_mod, "tengine_router", None) \
+                             or getattr(_ten_mod, "api", None)
+            if tengine_router is None:
+                raise ImportError("No APIRouter named router/tengine_router/api in tengine module")
+        except Exception as e:
+            log.error("[routers] tengine failed to load -> %s", e)
+            tengine_router = None
+
+if tengine_router:
+    # ΜΗΝ δώσεις extra prefix εδώ — ο router σου έχει ήδη prefix="/tengine"
+    app.include_router(tengine_router)
 
 # optional routers
 try:
@@ -247,7 +279,7 @@ def me_credits(db: Session = Depends(get_db), user: User = Depends(get_current_u
 @app.api_route("/me/use-credit", methods=["GET", "POST"], tags=["users"], include_in_schema=False)
 def use_credit(amount: int = Query(1, ge=1), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     credits = int(getattr(user, "credits", 0) or 0)
-    if credits < amount: 
+    if credits < amount:
         raise HTTPException(status_code=402, detail="No credits")
     user.credits = credits - amount
     db.add(user); db.commit(); db.refresh(user)
@@ -263,7 +295,7 @@ def add_credits(amount: int = Query(5, ge=1, le=1000), db: Session = Depends(get
 # ──────────────────────────────────────────────────────────────────────────────
 # Pages
 @app.get("/", include_in_schema=False)
-def root(): 
+def root():
     return RedirectResponse(url="/auth.html", status_code=302)
 
 NO_STORE = {"Cache-Control": "no-store"}

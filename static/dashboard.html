@@ -249,7 +249,7 @@
         <div class="pad">
           <div class="secTitle">Preview</div>
           <div id="previewBox" class="previewBox"><span class="small">Κάνε Preview για να εμφανιστεί εδώ η εικόνα</span></div>
-          <!-- ↓↓↓ ΜΟΝΟ προσθήκη: Image Check box κάτω από το preview ↓↓↓ -->
+          <!-- Image Check box -->
           <div id="image-check-box" style="display:none;margin-top:12px;padding:12px;border:1px solid #1f2937;border-radius:10px;background:#111827;color:#e5e7eb">
             <div style="font-weight:600;margin-bottom:6px">Έλεγχος εικόνας</div>
             <div id="ic-category">Κατηγορία: —</div>
@@ -258,7 +258,6 @@
             <div id="ic-sugg" style="margin-top:6px">Προτάσεις: —</div>
             <div id="ic-meta" class="muted" style="margin-top:6px;font-size:12px;color:#9ca3af"></div>
           </div>
-          <!-- ↑↑↑ τέλος προσθήκης -->
         </div>
         <div class="pad">
           <div class="secTitle">Ιστορικό (τελευταία 10)</div>
@@ -312,7 +311,20 @@
     try{
       const r=await fetch('/me/credits',{headers:headers()});
       const j=await r.json();
-      $('#credits').textContent='Credits: '+(j.credits ?? '—');
+      const elC = document.querySelector('#credits');
+      const n = j.credits ?? '—';
+      elC.textContent = 'Credits: ' + n;
+
+      // κόκκινο badge όταν < 10
+      if (typeof n === 'number' && n < 10) {
+        elC.style.background = '#7f1d1d';
+        elC.style.color = '#ffe4e6';
+        elC.style.border = '1px solid #991b1b';
+      } else {
+        elC.style.background = '#223046';
+        elC.style.color = '#b9c7dc';
+        elC.style.border = '';
+      }
     }catch{}
   }
 
@@ -396,11 +408,12 @@
   });
   $('#hasDiscount').onchange=()=>{ $('#oldPrice').style.display = $('#hasDiscount').checked ? '' : 'none'; };
   const abs2rel=u=>u.replace(/^https?:\/\/[^/]+/,'');
+  function fmtTime(s){ if(!s) return '—'; try{ return new Date(s).toLocaleString(); }catch{ return s; } }
 
-  // ratio από πλατφόρμα
-  const RATIO_BY_PLATFORM = { instagram:'1:1', facebook:'1:1', linkedin:'1:1', tiktok:'9:16' };
+  // ratio από πλατφόρμα (Instagram=4:5)
+  const RATIO_BY_PLATFORM = { instagram:'4:5', facebook:'1:1', linkedin:'1:1', tiktok:'9:16' };
 
-  // ===== Preview (κάτω κουμπί) — static ή redirect σε carousel/video =====
+  // ===== Preview — static ή redirect σε carousel/video =====
   async function doPreview(){
     const modeTop = $('#modeTop').value;
     if(modeTop !== 'normal'){ // για Carousel/Video χρησιμοποίησε τον builder
@@ -408,24 +421,28 @@
     }
 
     if(renderer!=='template'){ alert('AI Visual WIP'); return; }
-    const img = $('#imageUrl').value || $('#selImg').src;
-    const price = $('#newPrice').value.trim();
-    if(!img){ alert('Βάλε εικόνα.'); return; }
-    if(!/^\d+(\.\d{1,2})?$/.test(price)){ alert('Τιμή σε μορφή 12.34'); return; }
+    const imgIn = ($('#imageUrl').value||$('#selImg').src||'/static/demo/outfit1.webp').trim();
+    const img = imgIn.startsWith('http') ? abs2rel(imgIn) : imgIn; // προτίμηση σε relative /static
 
     const platform = $('#platformTop').value;
+    const ratio = RATIO_BY_PLATFORM[platform] || '1:1';
+    const hasDisc = $('#hasDiscount').checked;
+
+    // ✅ Template payload ΧΩΡΙΣ mode (για να μη γυρίζει στο simple schema)
     const payload = {
+      template: "img_basic_promo",
       platform,
-      ratio: RATIO_BY_PLATFORM[platform] || '1:1',
-      mode: $('#styleTop').value,                  // ύφος
-      template: 'clean',
-      title: $('#title').value || 'Demo Προϊόν',
-      new_price: $('#newPrice').value || '',
-      old_price: $('#hasDiscount').checked ? ($('#oldPrice').value||'') : '',
-      image_url: img,
-      brand_logo_url: "",
-      purchase_url: $('#purchaseUrl').value || 'https://example.com/p/123',
-      cta_label: $('#cta').value || 'Αγορά τώρα'
+      ratio,
+      mapping: {
+        title: $('#title').value || 'Demo Προϊόν',
+        price: $('#newPrice').value || '',
+        old_price: hasDisc ? ($('#oldPrice').value || '') : '',
+        discount_badge: hasDisc ? '-20%' : '',
+        image_url: img,
+        cta: $('#cta').value || 'Αγορά τώρα'
+      },
+      watermark: true,
+      return_absolute_url: true
     };
 
     $('#previewBtn').disabled = true; $('#commitBtn').disabled = true; show('#spinPrev', true);
@@ -434,29 +451,34 @@
       const j=await r.json(); if(!r.ok) throw new Error(j.detail||'render failed');
 
       const abs = j.absolute_url || j.preview_url || j.url || '';
-      lastPreview = { id: (j.preview_id||j.id||''), absUrl: abs, relUrl: abs2rel(abs) };
-      const im = el('img'); im.src = abs;
+      const rel = abs2rel(abs);
+      lastPreview = { id: (j.preview_id||j.id||''), absUrl: abs, relUrl: rel };
+      const im = el('img'); im.src = rel;
       $('#previewBox').innerHTML=''; $('#previewBox').appendChild(im);
       $('#dlBtn').disabled=false; $('#shareBtn').disabled=false;
       $('#commitBtn').disabled=false;
       loadHistory();
 
-      // ---- ΜΟΝΟ προσθήκη: εμφάνιση Image Check από τη response ----
+      // Image Check (αν υπάρχει)
       renderImageCheck(extractImageCheck(j));
-      // --------------------------------------------------------------
 
     }catch(e){ alert('Render error: '+e.message); }
     finally{ show('#spinPrev', false); $('#previewBtn').disabled = false; }
   }
 
-  // ===== Commit (κάτω κουμπί) — static ή redirect σε carousel/video =====
+  // ===== Commit — static ή redirect σε carousel/video =====
   async function doCommit(){
     const modeTop = $('#modeTop').value;
     if(modeTop !== 'normal'){
       return pcCommit();
     }
     if(renderer!=='template'){ alert('AI Visual WIP'); return; }
-    if(!lastPreview.relUrl){ alert('Πρέπει πρώτα Preview.'); return; }
+
+    // Guard: ούτε preview_id ούτε preview_url → σταμάτα
+    if(!lastPreview.id && !lastPreview.relUrl){
+      alert('Δεν υπάρχει preview (ούτε preview_id ούτε preview_url). Κάνε πρώτα Preview.');
+      return;
+    }
 
     $('#commitBtn').disabled=true; show('#spinCommit', true);
     const body = lastPreview.id ? {preview_id:lastPreview.id,preview_url:lastPreview.relUrl}
@@ -482,10 +504,20 @@
     try{
       const r=await fetch('/previews/committed?limit=10',{headers:headers()});
       const j=await r.json();
-      const list=j.images||j.results||j.items||[];
-      const urls=Array.isArray(list)?list.map(x=>x.absolute_url||x.url||x.final_url||x).flat():[];
+      const list=j.committed || j.images || j.results || j.items || [];
+      const norm = list.map(x=>{
+        if(typeof x==='string') return {url:abs2rel(x), created_at:null};
+        return {url:abs2rel(x.absolute_url||x.url||x.final_url||''), created_at:(x.created_at||x.time||null)};
+      }).filter(o=>o.url);
+
       const box=$('#hist'); box.innerHTML='';
-      urls.forEach(u=>{ const a=el('a'); a.href=u; a.target='_blank'; const im=el('img'); im.src=u; im.style.cssText='height:90px;border-radius:10px;background:#fff'; a.appendChild(im); box.appendChild(a); });
+      norm.forEach(o=>{
+        const a=el('a'); a.href=o.url; a.target='_blank';
+        const im=el('img'); im.src=o.url; im.style.cssText='height:90px;border-radius:10px;background:#fff';
+        if(o.created_at) im.title = fmtTime(o.created_at);
+        a.appendChild(im);
+        box.appendChild(a);
+      });
     }catch{}
   }
   async function loadHistoryBig(){
@@ -493,10 +525,24 @@
     try{
       const r=await fetch('/previews/committed?limit=20',{headers:headers()});
       const j=await r.json();
-      const list=j.images||j.results||j.items||[];
-      const urls=Array.isArray(list)?list.map(x=>x.absolute_url||x.url||x.final_url||x).flat():[];
+      const list=j.committed || j.images || j.results || j.items || [];
+      const norm = list.map(x=>{
+        if(typeof x==='string') return {url:abs2rel(x), created_at:null};
+        return {url:abs2rel(x.absolute_url||x.url||x.final_url||''), created_at:(x.created_at||x.time||null)};
+      }).filter(o=>o.url);
+
       const box=$('#histBig'); box.innerHTML='';
-      urls.forEach(u=>{ const a=el('a'); a.href=u; a.target='_blank'; const im=el('img'); im.src=u; im.style.cssText='height:150px;border-radius:12px;background:#fff'; a.appendChild(im); box.appendChild(a); });
+      norm.forEach(o=>{
+        const wrap=document.createElement('div');
+        wrap.style.cssText='display:flex;flex-direction:column;align-items:flex-start;gap:4px';
+        const a=el('a'); a.href=o.url; a.target='_blank';
+        const im=el('img'); im.src=o.url; im.style.cssText='height:150px;border-radius:12px;background:#fff';
+        const cap=el('div','small'); cap.textContent = o.created_at ? fmtTime(o.created_at) : '—';
+        a.appendChild(im);
+        wrap.appendChild(a);
+        wrap.appendChild(cap);
+        box.appendChild(wrap);
+      });
     }catch{}
   }
   attachArrows('#hLeft','#hRight','#hist');
@@ -511,7 +557,7 @@
   // ===== init =====
   loadCredits(); loadProducts(); loadHistory();
 
-  // === ΜΟΝΟ προσθήκη: helpers για Image Check ===
+  // === Image Check helpers ===
   function renderImageCheck(ic){
     const box = document.getElementById('image-check-box');
     if(!box){ return; }
@@ -534,18 +580,17 @@
     box.style.display='block';
   }
   function extractImageCheck(resp){
-    if(resp?.plan?.image_check) return resp.plan.image_check;   // από /ai|manual/plan
-    if(resp?.image_check)       return resp.image_check;        // echo από /previews/render
+    if(resp?.plan?.image_check) return resp.plan.image_check;
+    if(resp?.image_check)       return resp.image_check;
     return null;
   }
-  // === τέλος προσθήκης ===
 
   // ==========================
-  // === Builder για Carousel/Video (χρήση από τα κάτω κουμπιά) ===
+  // === Builder για Carousel/Video
   // ==========================
   (function(){
     function buildPayload(){
-      const mode = $('#modeTop').value;                 // normal | carousel | video
+      const mode = $('#modeTop').value;
       const platform = $('#platformTop').value;
       const base = { platform, mode, template:'clean' };
 
@@ -554,7 +599,6 @@
         if(!url || !url.startsWith('/static/')) throw new Error('Δώσε relative path που να ξεκινά με /static/');
         return { ...base, ratio: RATIO_BY_PLATFORM[platform]||'1:1', image_url: url };
       } else {
-        // εικόνες: από textarea αν υπάρχει, αλλιώς η τρέχουσα εικόνα
         let lines = ($('#images').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
         if(lines.length===0){
           const one = ($('#image_url').value||$('#imageUrl').value||$('#selImg').src||'').trim();
@@ -581,15 +625,14 @@
         });
         const j = await r.json();
         if(!r.ok) throw new Error(j.detail||r.status);
-        lastPreview = { id:(j.preview_id||j.id||''), absUrl:(j.absolute_url||j.preview_url||j.url||''), relUrl:(j.preview_url||j.url||'') };
-        const im = el('img'); im.src = j.absolute_url || j.preview_url || j.url || '';
+        const abs = j.absolute_url || j.preview_url || j.url || '';
+        const rel = abs2rel(abs);
+        lastPreview = { id:(j.preview_id||j.id||''), absUrl:abs, relUrl:rel };
+        const im = el('img'); im.src = rel;
         $('#previewBox').innerHTML=''; $('#previewBox').appendChild(im);
         $('#commitBtn').disabled = false;
 
-        // ---- ΜΟΝΟ προσθήκη: εμφάνιση Image Check από τη response ----
         renderImageCheck(extractImageCheck(j));
-        // --------------------------------------------------------------
-
       }catch(e){
         alert('Render error: '+e.message);
       }
@@ -603,7 +646,7 @@
           body: JSON.stringify({ preview_url: lastPreview.relUrl })
         });
         const j = await r.json();
-        if(!r.ok) throw new Error(j.detail||r.status);
+        if(!r.ok) throw new Error(j.detail||j.status);
         alert('Commit OK');
         loadCredits(); loadHistory(); loadHistoryBig();
       }catch(e){
@@ -611,7 +654,6 @@
       }
     }
 
-    // εκθέτουμε για χρήση από τα κάτω κουμπιά
     window.pcRender = pcRender;
     window.pcCommit = pcCommit;
   })();
