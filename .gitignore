@@ -12,3 +12,7 @@ static/uploads/tmp/
 static/generated/
 __pycache__/
 *.webp
+logs/
+logs/*
+database.db
+*.sqlite
