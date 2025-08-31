@@ -9,7 +9,7 @@ import shutil
 import os
 import time
 import mimetypes
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from uuid import uuid4
 from urllib.request import urlopen, Request as URLRequest
 import logging
@@ -42,6 +42,12 @@ try:
     from music_bed import set_music_bed as _set_music_bed
 except Exception:  # pragma: no cover
     _set_music_bed = None
+
+# ΝΕΟ (optional): Pillow renderer (πίσω από flag)
+try:
+    from production_engine.services.pillow_renderer import render as pillow_render
+except Exception:  # pragma: no cover
+    pillow_render = None
 
 from database import get_db
 from token_module import get_current_user
@@ -239,6 +245,12 @@ class PreviewIn(_Base):
     audio_url: Optional[str] = None
     music_bucket: Optional[str] = None
 
+    # ΝΕΟ: flag για Pillow renderer (off by default — δεν αλλάζει τίποτα αν δεν ζητηθεί)
+    use_renderer: Optional[bool] = False
+
+    # ΝΕΟ: optional mapping (όταν ο καλών θέλει ρητά text-keys όπως title/price/old_price/cta/discount_badge)
+    mapping: Optional[Dict[str, Any]] = None
+
 
 class CommitIn(_Base):
     preview_id: Optional[str] = None
@@ -372,6 +384,7 @@ def render_preview(
     """
     Modes:
       - normal  : copy single image -> prev_<ts>.<ext> (+ optional overlay)
+                  (ΑΝ use_renderer=true ΚΑΙ υπάρχει pillow_renderer: τότε κάνει render overlay/cta/price)
       - carousel: images[] -> prev_<ts>_frame001..N.webp + prev_<ts>_sheet.webp
       - video   : images (or single) -> prev_<ts>.mp4 (+ poster .jpg)
     """
@@ -383,6 +396,71 @@ def render_preview(
     if mode == "normal":
         if not body.image_url:
             raise HTTPException(status_code=422, detail="image_url is required for normal mode")
+
+        # Αν ζητήθηκε ρητά ο Pillow renderer και είναι διαθέσιμος,
+        # ΔΕΝ αλλάζουμε τα defaults όταν είναι False ή λείπει.
+        if bool(body.use_renderer) and pillow_render is not None:
+            try:
+                # mapping προτεραιότητα: body.mapping -> model_extra.mapping -> derive από επιμέρους πεδία
+                mp = None
+                try:
+                    extra = getattr(body, "model_extra", {}) or {}
+                except Exception:
+                    extra = {}
+                mp = (body.mapping or extra.get("mapping") or {
+                    "title": (body.title or "").strip(),
+                    "price": (body.new_price or body.price or "").strip(),
+                    "old_price": (body.old_price or "").strip(),
+                    # μπορεί να έρθει από extra στη συνέχεια· αλλιώς παραλείπεται
+                    "discount_badge": (extra.get("discount_badge") or ""),
+                    "cta": (body.cta_label or "Δες περισσότερα").strip(),
+                })
+                rr = pillow_render(
+                    image_url=body.image_url,
+                    mapping=mp,
+                    ratio=(body.ratio or "4:5"),
+                    watermark=False,  # το κρατάμε off μέχρι να ζητηθεί ρητά
+                    quality=90,
+                )
+                dst = Path(rr.out_path)
+                rel_url = "/" + str(dst).replace(os.sep, "/")
+                base = str(request.base_url).rstrip("/")
+                abs_url = f"{base}{rel_url}"
+
+                # image_check στο ΤΟΠΙΚΟ αρχείο που μόλις φτιάξαμε
+                ic_echo = None
+                try:
+                    ic_echo = analyze_image(str(dst))
+                except Exception as e:
+                    logger.warning("IC(renderer) analyze failed src=%s err=%s", dst, e)
+                    ic_echo = None
+
+                _mode_in = (body.style or body.mode or "normal") or "normal"
+                _mode_out = "normal" if str(_mode_in).lower().strip() in {"image", "img", "picture", "photo"} else _mode_in
+                _new_price = body.new_price or body.price
+
+                return {
+                    "preview_id": f"prev_{ts_ms}",
+                    "preview_url": rel_url,
+                    "url": rel_url,
+                    "absolute_url": abs_url,
+                    "mode": _mode_out,
+                    "new_price": _new_price,
+                    "old_price": body.old_price,
+                    "template": body.template,
+                    "ratio": body.ratio,
+                    "overlay": None,  # το overlay το υλοποιεί ο renderer
+                    "overlay_applied": bool(rr.overlay_applied),
+                    "image_check": ic_echo,
+                    "meta": {"width": rr.width, "height": rr.height},
+                }
+            except HTTPException:
+                raise
+            except Exception as e:
+                # Σε αποτυχία renderer, πέφτουμε στο παλιό μονοπάτι (copy) για να ΜΗΝ σπάσει τίποτα.
+                logger.warning("Pillow renderer failed; falling back to copy-only. err=%s", e)
+
+        # ---- default path (copy-only), ακριβώς όπως πριν ----
         # materialize για να έχουμε σωστό local path
         src = _materialize_image_to_local(body.image_url)
         ext = _ext_from(src, default=".png")
