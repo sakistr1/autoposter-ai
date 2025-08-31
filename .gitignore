@@ -16,3 +16,8 @@ logs/
 logs/*
 database.db
 *.sqlite
+logs/
+logs/*
+database.db
+*.sqlite
+*.bak*
