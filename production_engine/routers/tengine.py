@@ -5,8 +5,7 @@ from pydantic import BaseModel, Field
 import httpx
 
 # import ai_plan service
-from ai_plan import ai_plan
-
+from production_engine.routers.ai_plan import ai_plan
 router = APIRouter(prefix="/tengine", tags=["tengine"])
 
 
