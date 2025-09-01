@@ -21,3 +21,9 @@ logs/*
 database.db
 *.sqlite
 *.bak*
+
+# runtime
+*.db
+logs/*
+*.csv
+smoke_*.log
