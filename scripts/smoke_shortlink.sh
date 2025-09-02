@@ -1,82 +1,82 @@
 #!/usr/bin/env bash
-# Smoke test: shortlinks > (302 μόνο, χωρίς follow) > render με QR > commit > ιστορικό
+set -euo pipefail
 
-set -Eeuo pipefail
-trap 'echo; echo "ERROR στη γραμμή $LINENO: $BASH_COMMAND"; exit 1' ERR
+# Usage:
+#   TOKEN="eyJ..." scripts/smoke_shortlink.sh
+# ή
+#   scripts/smoke_shortlink.sh --login           # θα πάρει token με demo user
+#
+# Προϋποθέσεις: jq
 
-# === ΒΑΛΕ ΤΟ ΦΡΕΣΚΟ TOKEN ΣΟΥ ===
-TOKEN='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMTBAZ21haWwuY29tIiwiZXhwIjoxNzU2NzUwNTMxfQ.xpvmIjAnmjFi7Nudqmgo3ltNyBmcU5SzhasBYbDE96k'
+BASE="${BASE:-http://127.0.0.1:8000}"
+TMP="${TMPDIR:-/tmp}"
+PR_JSON="$TMP/pr_short.json"
 
-# === Ρυθμίσεις backend / demo προϊόντος ===
-BASE="http://127.0.0.1:8000"
-IMG="/static/uploads/products/123.jpg"
-PRODUCT_URL="https://shop.example.com/p/sku-777"   # demo URL — δεν χρειάζεται να λύνει DNS
+need_jq() { command -v jq >/dev/null 2>&1 || { echo "ERROR: χρειάζεται 'jq'"; exit 1; }; }
 
-need() { command -v "$1" >/dev/null || { echo "Λείπει: $1"; exit 1; }; }
-need curl
-need jq
-
-[[ -z "${TOKEN:-}" ]] && { echo "Δεν έχεις ορίσει TOKEN"; exit 1; }
-
-echo "== 1) Δημιουργία shortlink =="; echo
-SL=$(
-  curl -sS -X POST "$BASE/shortlinks" \
-    -H "Authorization: Bearer $TOKEN" \
+get_token_via_login() {
+  echo "== LOGIN -> TOKEN (demo10)"
+  TOKEN="$(curl -sS -X POST "$BASE/login" \
     -H "Content-Type: application/json" \
-    -d "{\"url\":\"$PRODUCT_URL\"}"
-)
-echo "$SL" | jq .
-CODE=$(echo "$SL" | jq -r .code)
-[[ "$CODE" == "null" || -z "$CODE" ]] && { echo "Απέτυχε δημιουργία shortlink (μάλλον token)"; exit 1; }
-echo "CODE=$CODE"
+    -d '{"email":"demo10@gmail.com","password":"demo10"}' | jq -r '.access_token')"
+  if [[ -z "${TOKEN:-}" || "$TOKEN" == "null" ]]; then
+    echo "ERROR: Δεν πήραμε access_token από /login"; exit 1
+  fi
+  export TOKEN
+}
 
-echo; echo "== 2) Έλεγχος redirect ΧΩΡΙΣ follow =="; echo
-# Παίρνουμε ΜΟΝΟ το πρώτο response (302). Δεν ακολουθούμε redirs > δεν γίνεται DNS resolve στο demo domain.
-HDRS=$(curl -sS -D - -o /dev/null --max-redirs 0 "$BASE/go/$CODE" || true)
-echo "$HDRS" | sed -n '1,12p'
-HTTP302=$(echo "$HDRS" | awk 'NR==1{print $2}')
-if [[ "$HTTP302" != "302" ]]; then
-  echo "Περίμενα 302, πήρα: $HTTP302"; exit 1
+if [[ "${1:-}" == "--login" ]]; then
+  need_jq
+  get_token_via_login
 fi
-LOCATION=$(echo "$HDRS" | awk '/^location:/I{print $2}')
-echo "Location header: $LOCATION"
 
-echo; echo "== 3) Render εικόνας με QR (χρησιμοποιεί shortlink) =="; echo
-R=$(
-  curl -sS -X POST "$BASE/previews/render" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"type\":\"image\",
-      \"ratio\":\"4:5\",
-      \"platform\":\"instagram\",
-      \"mode\":\"Κανονικό\",
-      \"title\":\"Shortlink QR Test\",
-      \"target_url\":\"$PRODUCT_URL\",
-      \"qr\":true,
-      \"product_image_url\":\"$IMG\"
-    }"
-)
-echo "$R" | jq .
-RAW_PREV=$(echo "$R" | jq -r .preview_url)
-PREV_URL=$(echo "$R" | jq -r '.absolute_url // ("'"$BASE"'" + .preview_url)')
-[[ "$RAW_PREV" == "null" || -z "$RAW_PREV" ]] && { echo "Απέτυχε render"; exit 1; }
-echo "Preview URL: $PREV_URL"
+if [[ -z "${TOKEN:-}" ]]; then
+  echo "ERROR: Δώσε TOKEN (π.χ. TOKEN=\"...\" scripts/smoke_shortlink.sh) ή τρέξε με --login"
+  exit 1
+fi
 
-echo; echo "== 4) Commit preview =="; echo
-C=$(
-  curl -sS -X POST "$BASE/previews/commit" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"preview_url\":\"$RAW_PREV\"}"
-)
-echo "$C" | jq .
+need_jq
 
-echo; echo "== 5) Ιστορικό (τελευταία 5) =="; echo
-curl -sS -H "Authorization: Bearer $TOKEN" \
-  "$BASE/previews/committed?limit=5&offset=0" | jq .
+echo "== 1) RENDER με QR + auto-shortlink"
+curl -sS -X POST "$BASE/previews/render" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "mode":"normal","ratio":"4:5",
+        "ai_bg":"remove",
+        "qr": true,
+        "target_url":"https://shop.example.com/p/sku-777",
+        "image_url":"/static/demo/outfit1.webp",
+        "mapping":{"title":"Shortlink Test","price":"99.90","cta":"Αγόρασε"}
+      }' \
+  | tee "$PR_JSON" >/dev/null
 
-echo; echo "? Τέλος. Άνοιξε: $PREV_URL"
+SHORT_URL="$(jq -r '.short_url // empty' "$PR_JSON")"
+PREVIEW_URL="$(jq -r '.preview_url // .url // empty' "$PR_JSON")"
 
-# Για να μην κλείνει παράθυρο αν το τρέξεις με διπλό κλικ:
-read -rp "Πάτα Enter για έξοδο… " _ || true
+if [[ -z "$SHORT_URL" ]]; then
+  echo "ERROR: Δεν επιστράφηκε short_url στο render"; exit 1
+fi
+if [[ -z "$PREVIEW_URL" ]]; then
+  echo "ERROR: Δεν βρέθηκε preview_url στο render"; exit 1
+fi
+
+CODE="${SHORT_URL##*/go/}"
+
+echo "   short_url: $SHORT_URL"
+echo "   preview_url: $PREVIEW_URL"
+
+echo "== 2) Έλεγχος 302 (redirect) για /go/$CODE"
+curl -sS -D - -o /dev/null --max-redirs 0 "$BASE/go/$CODE" | sed -n '1,5p'
+
+echo "== 3) COMMIT (να χρεώσει credits)"
+curl -sS -X POST "$BASE/previews/commit" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"preview_url\":\"$PREVIEW_URL\"}" \
+  | tee "$TMP/commit_short.json" >/dev/null
+
+echo "== 4) CREDITS"
+curl -sS -H "Authorization: Bearer $TOKEN" "$BASE/previews/me/credits" | jq .
+
+echo "OK ?  (render>shortlink>302>commit>credits)"

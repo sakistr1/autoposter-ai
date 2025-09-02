@@ -7,6 +7,7 @@ import shutil
 import sqlite3
 import typing as t
 from pathlib import Path
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from pydantic import BaseModel, ConfigDict
@@ -248,6 +249,34 @@ def _read_meta(preview_rel: str) -> dict | None:
     return None
 
 # ──────────────────────────────────────────────────────────────────────────────
+# AI background helpers (ΝΕΑ)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _apply_ai_bg_remove(im: Image.Image) -> Image.Image:
+    """
+    Αφαιρεί φόντο με rembg και τοποθετεί το αντικείμενο σε καθαρό λευκό background.
+    Αν λείπει το rembg → 422 με οδηγία εγκατάστασης.
+    """
+    try:
+        from rembg import remove  # type: ignore
+    except Exception:
+        raise HTTPException(
+            status_code=422,
+            detail="ai_bg='remove' απαιτεί το πακέτο rembg. Εγκατάσταση: pip install rembg",
+        )
+    try:
+        out = remove(im)  # μπορεί να επιστρέψει PIL Image ή bytes
+        if isinstance(out, Image.Image):
+            rgba = out.convert("RGBA")
+        else:
+            rgba = Image.open(BytesIO(out)).convert("RGBA")
+        bg = Image.new("RGB", rgba.size, (255, 255, 255))
+        bg.paste(rgba, mask=rgba.split()[-1])
+        return bg
+    except Exception as e:
+        raise HTTPException(500, f"Background removal failed: {e}")
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Schemas
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -282,6 +311,10 @@ class RenderRequest(BaseModel):
     cta_text: t.Optional[str] = None
     target_url: t.Optional[str] = None
     qr: t.Optional[bool] = None
+
+    # ΝΕΑ πεδία
+    ai_bg: t.Optional[str] = None           # "remove" | "generate"(reserved)
+    ai_bg_prompt: t.Optional[str] = None    # reserved για generate
 
     mapping: t.Optional[MappingV2] = None
     meta: t.Optional[t.Union[dict, str]] = None
@@ -355,6 +388,10 @@ def _shortlink_db():
 def _create_or_get_shortlink(url: str) -> str:
     """επιστρέφει absolute short URL (http://127.0.0.1:8000/go/<code>) — idempotent ανά url"""
     try:
+        # Αν ήδη είναι /go/<code>, μην δημιουργείς νέο
+        if re.match(r"^/go/[A-Za-z0-9]+$", url) or re.match(r"^https?://[^/]+/go/[A-Za-z0-9]+$", url):
+            return url
+
         con = _shortlink_db()
         cur = con.cursor()
         row = cur.execute("SELECT code FROM shortlinks WHERE url=? LIMIT 1", (url,)).fetchone()
@@ -416,6 +453,12 @@ def render_preview(
     else:
         mapping.setdefault("discount_badge", True)
 
+    # Helper για QR/shortlink από όποιο πεδίο έρθει
+    def _want_qr_and_url() -> tuple[bool, str | None]:
+        tgt = req.target_url or mapping.get("target_url")
+        want_qr = bool(req.qr) or bool(mapping.get("qr_enabled")) or bool(tgt)
+        return want_qr, tgt
+
     # ============= VIDEO ======================================================
     if mode == "video":
         body = json.loads(req.meta or "{}") if isinstance(req.meta, str) else (req.meta or {})
@@ -429,10 +472,25 @@ def render_preview(
         if not images:
             raise HTTPException(400, "No images for video mode")
 
+        # PRE-FLIGHT: έλεγχος ύπαρξης όλων των paths
+        missing: list[str] = []
+        for it in images:
+            url = it["image"] if isinstance(it, dict) else it
+            try:
+                if not _abs_from_url(url).exists():
+                    missing.append(url)
+            except Exception:
+                missing.append(url)
+        if missing:
+            raise HTTPException(status_code=422, detail={"error": "missing_images", "missing": missing})
+
         frames = []
         for it in images:
             url = it["image"] if isinstance(it, dict) else it
             im = load_image_from_url_or_path(url)
+            # AI background remove (αν ζητήθηκε)
+            if req.ai_bg == "remove":
+                im = _apply_ai_bg_remove(im)
             frames.append(im)
 
         # TEMPLATE OVERLAY σε κάθε frame (πριν το QR)
@@ -448,10 +506,11 @@ def render_preview(
         except Exception:
             pass
 
-        # QR/Shortlink πάνω στα frames (αν ζητήθηκε)
-        if bool(req.qr) and (req.target_url or mapping.get("target_url")):
-            url = req.target_url or mapping.get("target_url")
-            short_url = _create_or_get_shortlink(url)
+        # QR/Shortlink πάνω στα frames (αν ζητήθηκε ή υπάρχει target_url)
+        short_url = None
+        want_qr, tgt_url = _want_qr_and_url()
+        if want_qr and tgt_url:
+            short_url = _create_or_get_shortlink(tgt_url)
             # μέγεθος QR 160..360 ανάλογα με το μέγεθος frame
             w0, h0 = frames[0].size
             qr_side = int(max(160, min(0.22 * min(w0, h0), 360)))
@@ -477,11 +536,13 @@ def render_preview(
             "mode": "video",
             "preview_url": poster_rel,
             "absolute_url": f"http://127.0.0.1:8000{poster_rel}",
+            "short_url": short_url,
+            "target_url_raw": tgt_url,
             "plan": {
                 "type": "video",
                 "ratio": ratio,
                 "video_url": mp4_rel,
-                "shortlink": {"url": (req.target_url or mapping.get("target_url")), "short": mp4_rel.replace("static/generated/prev", "/go/???")},
+                "shortlink": {"raw": tgt_url, "short": short_url},
                 "image_check": {"category": "product", "quality": "ok", "background": "clean", "suggestions": [], "meta": {}},
             },
         }
@@ -499,10 +560,25 @@ def render_preview(
         if not images:
             raise HTTPException(400, "No images for carousel mode")
 
+        # PRE-FLIGHT: έλεγχος ύπαρξης όλων των paths
+        missing: list[str] = []
+        for it in images:
+            url = it["image"] if isinstance(it, dict) else it
+            try:
+                if not _abs_from_url(url).exists():
+                    missing.append(url)
+            except Exception:
+                missing.append(url)
+        if missing:
+            raise HTTPException(status_code=422, detail={"error": "missing_images", "missing": missing})
+
         frames = []
         for it in images:
             url = it["image"] if isinstance(it, dict) else it
             im = load_image_from_url_or_path(url)
+            # AI background remove (αν ζητήθηκε)
+            if req.ai_bg == "remove":
+                im = _apply_ai_bg_remove(im)
             frames.append(im)
 
         # TEMPLATE OVERLAY σε κάθε frame (πριν το QR)
@@ -518,10 +594,11 @@ def render_preview(
         except Exception:
             pass
 
-        # QR/Shortlink πάνω σε ΚΑΘΕ frame (αν ζητήθηκε)
-        if bool(req.qr) and (req.target_url or mapping.get("target_url")):
-            url = req.target_url or mapping.get("target_url")
-            short_url = _create_or_get_shortlink(url)
+        # QR/Shortlink πάνω σε ΚΑΘΕ frame (αν ζητήθηκε ή υπάρχει target_url)
+        short_url = None
+        want_qr, tgt_url = _want_qr_and_url()
+        if want_qr and tgt_url:
+            short_url = _create_or_get_shortlink(tgt_url)
             w0, h0 = frames[0].size
             qr_side = int(max(160, min(0.22 * min(w0, h0), 360)))
             qr_img = _make_qr_pil(short_url, qr_side)
@@ -547,6 +624,8 @@ def render_preview(
             "absolute_url": f"http://127.0.0.1:8000{sheet_rel}",
             "sheet_url": sheet_rel,
             "first_frame_url": first_rel,
+            "short_url": short_url,
+            "target_url_raw": tgt_url,
             "plan": {
                 "type": "carousel",
                 "ratio": ratio,
@@ -590,6 +669,11 @@ def render_preview(
             }
 
         w, h = im.width, im.height
+
+        # AI background remove (αν ζητήθηκε)
+        if req.ai_bg == "remove":
+            im = _apply_ai_bg_remove(im)
+
         overlay_applied = False
         logo_applied = False
         discount_applied = False
@@ -611,10 +695,11 @@ def render_preview(
         except Exception:
             overlay_applied = False
 
-        # ── QR + SHORTLINK integration ────────────────────────────────────────
-        if bool(req.qr) and (req.target_url or mapping.get("target_url")):
-            url = req.target_url or mapping.get("target_url")
-            short_url = _create_or_get_shortlink(url)
+        # ── QR + SHORTLINK integration (auto) ─────────────────────────────────
+        short_url = None
+        want_qr, tgt_url = _want_qr_and_url()
+        if want_qr and tgt_url:
+            short_url = _create_or_get_shortlink(tgt_url)
             qr_side = int(max(160, min(0.22 * min(w, h), 360)))  # 160..360px
             qr_img = _make_qr_pil(short_url, qr_side)
             _paste_qr_bottom_right(im, qr_img, margin=int(0.022 * min(w, h)))
@@ -643,6 +728,8 @@ def render_preview(
             "discount_badge_applied": discount_applied,
             "cta_applied": cta_applied,
             "qr_applied": qr_applied,
+            "short_url": short_url,
+            "target_url_raw": tgt_url,
             "slots_used": slots_used,
             "safe_area": safe_area,
             "image_check": checks,

@@ -250,6 +250,10 @@
         <div class="pad">
           <div class="secTitle">Preview</div>
           <div id="previewBox" class="previewBox"><span class="small">Κάνε Preview για να εμφανιστεί εδώ η εικόνα</span></div>
+          <!-- ΝΕΟ: εμφανίζει το shortlink όταν το γυρίσει το render -->
+          <div id="shortlinkBox" class="small" style="display:none;margin-top:8px">
+            Short URL: <a id="shortUrlA" href="#" target="_blank" rel="noopener"></a>
+          </div>
           <div id="image-check-box" style="display:none;margin-top:12px;padding:12px;border:1px solid #1f2937;border-radius:10px;background:#111827;color:#e5e7eb">
             <div style="font-weight:600;margin-bottom:6px">Έλεγχος εικόνας</div>
             <div id="ic-category">Κατηγορία: —</div>
@@ -363,6 +367,7 @@
 
     lastPreview={id:'',absUrl:'',relUrl:''};
     $('#previewBox').innerHTML='<span class="small">Κάνε Preview για να εμφανιστεί εδώ η εικόνα</span>';
+    $('#shortlinkBox').style.display='none';
     $('#commitBtn').disabled=true; $('#dlBtn').disabled=true; $('#shareBtn').disabled=true;
   }
 
@@ -412,6 +417,13 @@
       const abs=j.absolute_url||j.preview_url||j.url||''; const rel=abs2rel(abs);
       lastPreview={id:(j.preview_id||j.id||''),absUrl:abs,relUrl:rel};
       const im=el('img'); im.src=rel; $('#previewBox').innerHTML=''; $('#previewBox').appendChild(im);
+      // ΝΕΟ: εμφάνιση short_url αν υπάρχει
+      if(j.short_url){
+        const a=document.getElementById('shortUrlA'); a.textContent=j.short_url; a.href=j.short_url;
+        document.getElementById('shortlinkBox').style.display='';
+      }else{
+        document.getElementById('shortlinkBox').style.display='none';
+      }
       $('#dlBtn').disabled=false; $('#shareBtn').disabled=false; $('#commitBtn').disabled=false;
       loadHistory(); renderImageCheck(extractImageCheck(j));
     }catch(e){ alert('Render error: '+e.message); }
@@ -527,6 +539,13 @@
         const abs=j.absolute_url||j.preview_url||j.url||''; const theRel=abs2rel(abs);
         lastPreview={id:(j.preview_id||j.id||''),absUrl:abs,relUrl:theRel};
         const im=el('img'); im.src=theRel; document.getElementById('previewBox').innerHTML=''; document.getElementById('previewBox').appendChild(im);
+        // ΝΕΟ: εμφάνιση short_url αν υπάρχει
+        if(j.short_url){
+          const a=document.getElementById('shortUrlA'); a.textContent=j.short_url; a.href=j.short_url;
+          document.getElementById('shortlinkBox').style.display='';
+        }else{
+          document.getElementById('shortlinkBox').style.display='none';
+        }
         document.getElementById('commitBtn').disabled=false; renderImageCheck(extractImageCheck(j));
       }catch(e){ alert('Render error: '+e.message); }
     }
