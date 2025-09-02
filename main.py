@@ -1,11 +1,10 @@
-# main.py
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Response, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from typing import Optional
-import logging, os
+import logging, os, sqlite3, time
 
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session, relationship
@@ -51,7 +50,6 @@ try:
     import models  # load declarative
     from models.user import User as _U
 
-    # Product.owner <-> User.products
     try:
         from models.product import Product
         if not hasattr(_U, "products"):
@@ -61,7 +59,6 @@ try:
     except Exception as e:
         log.warning("[models] product/user hotfix -> %s", e)
 
-    # Post.owner <-> User.posts
     try:
         from models.post import Post
         if not hasattr(_U, "posts"):
@@ -71,7 +68,6 @@ try:
     except Exception as e:
         log.warning("[models] post/user hotfix -> %s", e)
 
-    # Template.owner or Template.user <-> User.templates
     try:
         from models.template import Template
         if not hasattr(_U, "templates"):
@@ -85,7 +81,6 @@ try:
     except Exception as e:
         log.warning("[models] template/user hotfix -> %s", e)
 
-    # CreditTransaction.user <-> User.credit_transactions
     try:
         from models.credit_transaction import CreditTransaction
         if not hasattr(_U, "credit_transactions"):
@@ -99,10 +94,8 @@ except Exception as e:
     log.warning("[models] autoload failed -> %s", e)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# AUTH (χωρίς bcrypt, με reset password αν δεν ταιριάζει)
+# AUTH (χωρίς bcrypt)
 auth_router = APIRouter(tags=["auth"])
-
-# pure-python αλγόριθμος (δεν απαιτεί native bcrypt)
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 class RegisterIn(BaseModel):
@@ -118,26 +111,19 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-def _norm(e: str) -> str:
-    return (e or "").strip().lower()
-
-def _hash(p: str) -> str:
-    return pwd_context.hash(p)
+def _norm(e: str) -> str: return (e or "").strip().lower()
+def _hash(p: str) -> str: return pwd_context.hash(p)
 
 def _verify(raw: str, hashed: Optional[str]) -> bool:
-    if not hashed:
-        return False
-    try:
-        return pwd_context.verify(raw, hashed)
-    except Exception:
-        return False
+    if not hashed: return False
+    try: return pwd_context.verify(raw, hashed)
+    except Exception: return False
 
 def _unique_username(db: Session, base: str) -> str:
     base = (base or "user").split("@")[0] or "user"
     name, i = base, 1
     while db.query(User).filter(User.username == name).first():
-        i += 1
-        name = f"{base}{i}"
+        i += 1; name = f"{base}{i}"
     return name
 
 @auth_router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -148,10 +134,8 @@ def register(b: RegisterIn, db: Session = Depends(get_db)):
     u = User(email=e, username=b.username or _unique_username(db, e),
              hashed_password=_hash(b.password), is_active=True)
     if not getattr(u, "credits", None):
-        try:
-            setattr(u, "credits", 50)
-        except Exception:
-            pass
+        try: setattr(u, "credits", 50)
+        except Exception: pass
     db.add(u); db.commit(); db.refresh(u)
     return {"id": u.id, "email": u.email, "username": u.username, "is_active": u.is_active}
 
@@ -160,17 +144,13 @@ def login(b: LoginIn, db: Session = Depends(get_db)):
     e = _norm(b.email)
     u = db.query(User).filter(User.email == e).first()
     if not u:
-        # auto-register για dev
         u = User(email=e, username=_unique_username(db, e),
                  hashed_password=_hash(b.password), is_active=True)
         if not getattr(u, "credits", None):
-            try:
-                setattr(u, "credits", 50)
-            except Exception:
-                pass
+            try: setattr(u, "credits", 50)
+            except Exception: pass
         db.add(u); db.commit(); db.refresh(u)
     else:
-        # DEV reset: αν ο κωδικός δεν ταιριάζει, τον ενημερώνουμε στον νέο που έδωσες
         if not _verify(b.password, getattr(u, "hashed_password", None)):
             u.hashed_password = _hash(b.password)
             db.add(u); db.commit(); db.refresh(u)
@@ -178,7 +158,6 @@ def login(b: LoginIn, db: Session = Depends(get_db)):
     return {"access_token": token, "token_type": "bearer"}
 
 from fastapi.security import OAuth2PasswordRequestForm
-
 @auth_router.post("/token", response_model=TokenOut)
 def login_form(f: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     e = _norm(f.username)
@@ -187,10 +166,8 @@ def login_form(f: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(g
         u = User(email=e, username=_unique_username(db, e),
                  hashed_password=_hash(f.password), is_active=True)
         if not getattr(u, "credits", None):
-            try:
-                setattr(u, "credits", 50)
-            except Exception:
-                pass
+            try: setattr(u, "credits", 50)
+            except Exception: pass
         db.add(u); db.commit(); db.refresh(u)
     else:
         if not _verify(f.password, getattr(u, "hashed_password", None)):
@@ -199,17 +176,10 @@ def login_form(f: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(g
     token = create_access_token({"sub": u.email})
     return {"access_token": token, "token_type": "bearer"}
 
-# self-test για debug
-@app.get("/auth/selftest", include_in_schema=False)
-def auth_selftest():
-    sample = "test123"
-    h = _hash(sample)
-    return {"algo": "pbkdf2_sha256", "hash_ok": _verify(sample, h), "hash_bad": _verify("nope", h)}
-
 app.include_router(auth_router)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# previews με ίδιο auth dependency
+# previews (με forced auth dependency)
 try:
     from fastapi import Depends as _Depends
     from production_engine.routers.previews import router as previews_router
@@ -218,32 +188,20 @@ try:
 except Exception as e:
     log.error("[routers] previews failed -> %s", e)
 
-# >>>>>>> (ΠΑΛΙΟ) AI ROUTER — ΑΠΕΝΕΡΓΟΠΟΙΗΜΕΝΟ για να μη συγκρούεται με το /ai/plan μας <<<<<<<
-# from production_engine.routers.ai import router as ai_router
-# app.include_router(ai_router)
-# Αν το χρειαστείς παράλληλα, βάλε prefix για να μη συγκρούεται:
-# from production_engine.routers.ai import router as ai_router
-# app.include_router(ai_router, prefix="/ai_old")
-
-# >>>>>>> MANUAL ROUTER <<<<<<<
+# manual / ai_plan / tengine / templates / assets
 from production_engine.routers.manual import router as manual_router
 app.include_router(manual_router)
 
-# >>>>>>> AI PLAN ROUTER (ΜΟΝΟ αυτό εκθέτει /ai/plan) <<<<<<<
 from production_engine.routers import ai_plan
 app.include_router(ai_plan.router, prefix="/ai", tags=["ai"])
 
-# >>>>>>> TENGINE ROUTER (ΑΝΘΕΚΤΙΚΟ include) <<<<<<<
 try:
-    # πιο συνηθισμένη περίπτωση
     from production_engine.routers.tengine import router as tengine_router
 except Exception:
     try:
-        # εναλλακτικό όνομα
         from production_engine.routers.tengine import tengine_router  # type: ignore
     except Exception:
         try:
-            # πιάσε module και βρες router αντικείμενο δυναμικά
             from production_engine.routers import tengine as _ten_mod  # type: ignore
             tengine_router = getattr(_ten_mod, "router", None) \
                              or getattr(_ten_mod, "tengine_router", None) \
@@ -253,12 +211,9 @@ except Exception:
         except Exception as e:
             log.error("[routers] tengine failed to load -> %s", e)
             tengine_router = None
-
 if tengine_router:
-    # ΜΗΝ δώσεις extra prefix εδώ — ο router σου έχει ήδη prefix="/tengine"
     app.include_router(tengine_router)
 
-# optional routers
 try:
     from production_engine.routers.templates_engine import router as templates_engine_router
     app.include_router(templates_engine_router)
@@ -269,6 +224,28 @@ try:
     app.include_router(assets_router)
 except Exception:
     pass
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SHORTLINKS ROUTER + πραγματικό redirect /go/{code}
+from production_engine.routers.shortlinks import router as shortlinks_router
+app.include_router(shortlinks_router)
+
+DB_PATH = Path("static/logs/database.db")
+def _get_db_conn():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS shortlinks (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, url TEXT, created_at INTEGER)"
+    )
+    return con
+
+@app.get("/go/{code}", include_in_schema=False)
+def go(code: str):
+    con = _get_db_conn()
+    row = con.execute("SELECT url FROM shortlinks WHERE code=?", (code,)).fetchone()
+    if not row:
+        raise HTTPException(404, "shortlink not found")
+    return RedirectResponse(url=row[0], status_code=302)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Credits

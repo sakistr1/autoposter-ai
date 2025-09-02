@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <!-- Background raster -->
+  <defs>
+    <style>
+      .shadow { text-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+    </style>
+  </defs>
+  <image href="bg.png" x="0" y="0" width="1080" height="1350" preserveAspectRatio="xMidYMid slice"/>
+  
+  <!-- (Optional) visualize safe area during dev; keep display:none in prod -->
+  <rect x="60" y="60" width="960" height="1230" fill="none" stroke="#00ff88" stroke-width="2" opacity="0.3" style="display:none"/>
+
+  <!-- Title -->
+  <g id="slot-title">
+    <foreignObject x="80" y="120" width="920" height="160">
+      <div xmlns="http://www.w3.org/1999/xhtml"
+           style="font:bold 64px system-ui; color:#fff; line-height:1.1; text-shadow:0 2px 6px rgba(0,0,0,.4);">
+        {{ title }}
+      </div>
+    </foreignObject>
+  </g>
+
+  <!-- Product image mask -->
+  <defs>
+    <clipPath id="clip-prod">
+      <rect x="540" y="380" width="460" height="460" rx="24" ry="24"/>
+    </clipPath>
+  </defs>
+  <g id="slot-product-image" clip-path="url(#clip-prod)">
+    {% if product_image_url %}
+      <image href="{{ product_image_url }}" x="540" y="380" width="460" height="460" preserveAspectRatio="xMidYMid slice"/>
+    {% endif %}
+  </g>
+
+  <!-- Brand logo -->
+  {% if brand_logo_url %}
+  <g id="slot-brand-logo">
+    <image href="{{ brand_logo_url }}" x="80" y="80" width="180" height="80" preserveAspectRatio="xMidYMid meet"/>
+  </g>
+  {% endif %}
+
+  <!-- Prices -->
+  <g id="slot-price">
+    <text x="80" y="1040" font-family="system-ui" font-size="64" fill="#22c55e" font-weight="700">{{ price }}</text>
+  </g>
+  {% if old_price %}
+  <g id="slot-old-price">
+    <text x="80" y="1110" font-family="system-ui" font-size="44" fill="#e5e7eb" opacity="0.8" text-decoration="line-through">{{ old_price }}</text>
+  </g>
+  {% endif %}
+
+  <!-- Discount badge -->
+  {% if discount_pct %}
+  <g id="slot-discount">
+    <rect x="860" y="100" width="160" height="80" rx="16" ry="16" fill="#ef4444"/>
+    <text x="940" y="152" text-anchor="middle" font-family="system-ui" font-size="44" fill="#ffffff" font-weight="700">{{ discount_pct }}</text>
+  </g>
+  {% endif %}
+
+  <!-- CTA button -->
+  {% if cta_text %}
+  <g id="slot-cta">
+    <rect x="80" y="1170" width="420" height="100" rx="20" ry="20" fill="#f59e0b"/>
+    <text x="290" y="1238" text-anchor="middle" font-family="system-ui" font-size="40" fill="#0b1620" font-weight="700">{{ cta_text }}</text>
+  </g>
+  {% endif %}
+
+  <!-- QR code placeholder; renderer θα ζωγραφίσει bitmap εδώ -->
+  {% if short_url and qr_enabled %}
+  <g id="slot-qr">
+    <rect x="900" y="1150" width="240" height="240" fill="#fff" opacity="0.9"/>
+    <!-- Το πραγματικό QR 240x240 θα μπει raster από τον renderer -->
+    <image href="{{ qrcode_data_uri }}" x="900" y="1150" width="240" height="240"/>
+  </g>
+  {% endif %}
+</svg>

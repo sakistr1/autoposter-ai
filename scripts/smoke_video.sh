@@ -1,49 +1,69 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${BASE:?set BASE}"
-: "${AUTHZ:?set AUTHZ}"
+# --- config ---
+BASE="${BASE:-http://127.0.0.1:8000}"
+: "${TOKEN:?Set TOKEN env first}"
+AUTHZ="Authorization: Bearer ${TOKEN}"
 
-OUT="smoke_video.csv"
-LOG="smoke_video.log"
-: > "$LOG"
+# Είσοδοι (προεπιλογές)
+IMG1="${1:-/static/demo/img_1_1.jpg}"
+IMG2="${2:-/static/demo/img_4_5.jpg}"
+DUR="${3:-6}"         # συνολικά δευτερόλεπτα video
+FPS="${FPS:-30}"      # frames per second
 
-echo "status,mode,mp4_url,poster_url,commit_status,committed_url,err" > "$OUT"
+OUTCSV="smoke_video.csv"
+TMP_JSON="$(mktemp)"
 
-read -r -d '' PAYLOAD <<'JSON'
-{
-  "mode": "video",
-  "fps": 30,
-  "duration_sec": 12,
-  "images": [
-    {"image": "/static/demo/img_1_1.jpg"},
-    {"image": "/static/demo/img_4_5.jpg"}
-  ]
-}
-JSON
-
-RESP=$(curl -sS -X POST "$BASE/previews/render" \
-  -H "$AUTHZ" -H "Content-Type: application/json" \
-  -d "$PAYLOAD" || true)
-
-printf '%s\n' "$RESP" >> "$LOG"
-
-STATUS=$(jq -r '.status // "ERR"' <<<"$RESP")
-MODE=$(jq -r '.mode // ""' <<<"$RESP")
-MP4=$(jq -r '(.mp4_url // .preview_url // "")' <<<"$RESP")
-POSTER=$(jq -r '(.poster_url // "")' <<<"$RESP")
-
-if [[ "$STATUS" != "ok" || -z "$MP4" ]]; then
-  echo "$STATUS,$MODE,,,ERR,,render failed" >> "$OUT"
-  exit 0
+# Header CSV αν δεν υπάρχει
+if [[ ! -f "$OUTCSV" ]]; then
+  echo "status,mode,mp4_url,poster_url,commit_status,committed_url,err" > "$OUTCSV"
 fi
 
-CRESP=$(curl -sS -X POST "$BASE/previews/commit" \
-  -H "$AUTHZ" -H "Content-Type: application/json" \
-  -d "{\"preview_url\":\"$MP4\"}" || true)
+# --- render ---
+VID=$(
+  curl -s -X POST "$BASE/previews/render" \
+    -H "$AUTHZ" -H "Content-Type: application/json" \
+    -d "{
+      \"mode\": \"video\",
+      \"fps\": ${FPS},
+      \"duration_sec\": ${DUR},
+      \"images\": [
+        {\"image\": \"${IMG1}\"},
+        {\"image\": \"${IMG2}\"}
+      ]
+    }"
+)
 
-printf '%s\n' "$CRESP" >> "$LOG"
-CSTAT=$(jq -r '.status // "ERR"' <<<"$CRESP")
-CURL=$(jq -r '.committed_url // ""' <<<"$CRESP")
+echo "$VID" > "$TMP_JSON"
 
-echo "$STATUS,$MODE,$MP4,$POSTER,$CSTAT,$CURL," >> "$OUT"
+STATUS=$(jq -r '.status // "ERR"' "$TMP_JSON")
+MODE=$(jq -r '.mode // ""' "$TMP_JSON")
+MP4=$(jq -r '.preview_url // ""' "$TMP_JSON")
+POSTER=$(jq -r '.poster_url // ""' "$TMP_JSON")
+
+# Αν κόπηκε το render
+if [[ "$STATUS" != "ok" || -z "$MP4" ]]; then
+  ERR=$(jq -r '.detail? // .error? // "render failed"' "$TMP_JSON")
+  echo "$STATUS,$MODE,,,$(printf "ERR"),,${ERR//,/;}" >> "$OUTCSV"
+  column -s, -t "$OUTCSV" | sed -n '1,20p'
+  exit 1
+fi
+
+# --- commit ---
+CMT=$(
+  curl -s -X POST "$BASE/previews/commit" \
+    -H "$AUTHZ" -H "Content-Type: application/json" \
+    -d "{\"preview_url\":\"${MP4}\"}"
+)
+
+CSTAT=$(echo "$CMT" | jq -r '.status // .ok // "ERR"' | sed 's/true/ok/; s/false/ERR/')
+CURL=$(echo "$CMT" | jq -r '.committed_url // .absolute_url // ""')
+ERR=$(echo "$CMT" | jq -r '.detail? // .error? // ""')
+
+# Γράψε γραμμή CSV
+echo "ok,video,${MP4},${POSTER},${CSTAT},${CURL},${ERR//,/;}" >> "$OUTCSV"
+
+# Εμφάνισε γρήγορο report
+echo "== VIDEO =="
+column -s, -t "$OUTCSV" | sed -n '1,20p'

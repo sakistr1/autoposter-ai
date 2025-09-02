@@ -1,0 +1,97 @@
+{
+  "id": "img_basic_promo_45",
+  "name": "Image Basic Promo 4:5",
+  "type": "image",
+  "ratio": "4:5",
+  "width": 1080,
+  "height": 1350,
+  "safe_area": { "x": 60, "y": 60, "w": 960, "h": 1230 },
+  "platform_overrides": {
+    "instagram": {"ratio": "4:5"},
+    "facebook": {"ratio": "4:5"}
+  },
+  "slots": [
+    {
+      "id": "title",
+      "kind": "text",
+      "x": 80, "y": 120, "w": 920, "h": 160,
+      "text_key": "title",
+      "font_size": 64,
+      "align": "left",
+      "color": "#ffffff",
+      "bold": true,
+      "shadow": true,
+      "max_lines": 2
+    },
+    {
+      "id": "price",
+      "kind": "text",
+      "x": 80, "y": 980, "w": 520, "h": 90,
+      "text_key": "price",
+      "font_size": 64,
+      "align": "left",
+      "color": "#22c55e",
+      "bold": true
+    },
+    {
+      "id": "old_price",
+      "kind": "text",
+      "x": 80, "y": 1060, "w": 520, "h": 70,
+      "text_key": "old_price",
+      "font_size": 44,
+      "align": "left",
+      "color": "#e5e7eb",
+      "strikethrough": true,
+      "opacity": 0.8
+    },
+    {
+      "id": "discount_badge",
+      "kind": "text",
+      "x": 860, "y": 100, "w": 160, "h": 80,
+      "text_key": "discount_pct",
+      "font_size": 44,
+      "align": "center",
+      "color": "#ffffff",
+      "bold": true,
+      "bg_color": "#ef4444",
+      "radius": 16,
+      "padding": 12
+    },
+    {
+      "id": "button",
+      "kind": "button",
+      "x": 80, "y": 1170, "w": 420, "h": 100,
+      "text_key": "cta_text",
+      "font_size": 40,
+      "align": "center",
+      "color": "#0b1620",
+      "bg_color": "#f59e0b",
+      "radius": 20,
+      "bold": true
+    },
+    {
+      "id": "qrcode",
+      "kind": "qrcode",
+      "x": 900, "y": 1150, "size": 240,
+      "data_key": "short_url",
+      "ecc": "M",
+      "quiet_zone": 4,
+      "frame": true
+    },
+    {
+      "id": "brand_logo",
+      "kind": "image",
+      "x": 80, "y": 80, "w": 180, "h": 80,
+      "image_key": "brand_logo_url",
+      "fit": "contain"
+    },
+    {
+      "id": "product_image",
+      "kind": "image",
+      "x": 540, "y": 380, "w": 460, "h": 460,
+      "image_key": "product_image_url",
+      "fit": "cover",
+      "radius": 24
+    }
+  ]
+}
