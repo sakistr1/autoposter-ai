@@ -1,29 +1,36 @@
-.venv/
+# Python
 __pycache__/
 *.pyc
-static/generated/
-static/uploads/tmp/
-*.mp4
-*.jpg
-*.webp
 
-# local artifacts
+# Venv / env
+.venv/
 .env
-static/generated/
-__pycache__/
-*.webp
-logs/
-logs/*
-database.db
-*.sqlite
-logs/
-logs/*
-database.db
-*.sqlite
-*.bak*
 
-# runtime
+# Databases
 *.db
-logs/*
-*.csv
-smoke_*.log
+*.db-shm
+*.db-wal
+
+# Logs / temp
+logging/
+static/logs/
+*.log
+RENDER.json
+COMMIT.json
+payload.json
+smoke_*.csv
+
+# Generated & uploads
+static/generated/
+production_engine/static/generated/
+production_engine/static/uploads/
+static/uploads/
+
+# Promo/test outputs
+promo_creator/
+sample_product.jpg
+
+# Media heavies
+*.mp4
+*.webm
+*.wav

@@ -1,51 +1,64 @@
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 import qrcode
-import io, math, shutil, time
-from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip
+import math
+import time
+import logging
+from typing import Optional, List
+
+# opencv
+import cv2
+import numpy as np
+
+log = logging.getLogger("uvicorn.error")
 
 BASE = Path("static")
 PREV = BASE / "previews"
 COMM = BASE / "committed"
 
+
+# ---------------------- helpers ----------------------
 def ensure_dir(p: Path):
     p.mkdir(parents=True, exist_ok=True)
 
-def new_preview_id():
-    return f"prv_{time.strftime('%Y%m%d_%H%M%S')}"
 
-def ratio_to_size(ratio: str):
-    # δίνουμε τυπικές διαστάσεις βάσει ratio (portrait για IG 4:5)
-    if ratio == "4:5":   return (1080, 1350)
-    if ratio == "9:16":  return (1080, 1920)
+def ratio_to_size(ratio: str) -> tuple[int, int]:
+    if ratio == "4:5":
+        return (1080, 1350)
+    if ratio == "9:16":
+        return (1080, 1920)
     return (1080, 1080)
+
 
 def load_img(rel_path: str) -> Image.Image:
     p = Path(rel_path.lstrip("/"))
     return Image.open(p).convert("RGBA")
 
+
 def paste_center(base: Image.Image, overlay: Image.Image):
     bw, bh = base.size
     ow, oh = overlay.size
-    scale = min(bw/ow, bh/oh)
-    overlay = overlay.resize((int(ow*scale), int(oh*scale)), Image.LANCZOS)
-    ox = (bw - overlay.width)//2
-    oy = (bh - overlay.height)//2
+    scale = min(bw / ow, bh / oh)
+    overlay = overlay.resize((int(ow * scale), int(oh * scale)), Image.LANCZOS)
+    ox = (bw - overlay.width) // 2
+    oy = (bh - overlay.height) // 2
     base.alpha_composite(overlay, (ox, oy))
     return base
 
+
 def draw_qr_overlay(img: Image.Image, final_url: str):
     qr = qrcode.QRCode(version=2, box_size=6, border=2)
-    qr.add_data(final_url); qr.make(fit=True)
+    qr.add_data(final_url)
+    qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
-    # κάτω δεξιά
     pad = 24
-    qr_size = min(img.width//4, img.height//4)
+    qr_size = min(img.width // 4, img.height // 4)
     qr_img = qr_img.resize((qr_size, qr_size), Image.NEAREST)
     x = img.width - qr_size - pad
     y = img.height - qr_size - pad
     img.alpha_composite(qr_img, (x, y))
     return img
+
 
 def export_jpg(im: Image.Image, out: Path, quality=92):
     ensure_dir(out.parent)
@@ -53,12 +66,12 @@ def export_jpg(im: Image.Image, out: Path, quality=92):
     rgb.save(out, "JPEG", quality=quality, optimize=True, progressive=True)
     return out
 
-def render_image(ratio: str, product_image_url: str, title: str = None,
-                 qr_url: str | None = None, ai_bg=False, ai_bg_prompt=None, outdir: Path = None):
+
+# ---------------------- renderers ----------------------
+def render_image(ratio: str, product_image_url: str, title=None, qr_url=None, ai_bg=False, ai_bg_prompt=None, outdir: Path | None = None):
     W, H = ratio_to_size(ratio)
     canvas = Image.new("RGBA", (W, H), (245, 247, 250, 255))
     prod = load_img(product_image_url)
-    # AI background (βασικό stub: ακόμα flatten χρώμα — θα αντικατασταθεί με αληθινό generator)
     if ai_bg:
         canvas = Image.new("RGBA", (W, H), (240, 240, 255, 255))
     paste_center(canvas, prod)
@@ -68,9 +81,10 @@ def render_image(ratio: str, product_image_url: str, title: str = None,
     export_jpg(canvas, preview)
     return {"preview": preview}
 
-def render_carousel(ratio: str, images: list[str], qr_url: str | None, ai_bg: bool, ai_bg_prompt, outdir: Path):
+
+def render_carousel(ratio: str, images: List[str], qr_url: Optional[str], ai_bg: bool, ai_bg_prompt, outdir: Path):
     W, H = ratio_to_size(ratio)
-    frames = []
+    frames: List[Path] = []
     for i, rel in enumerate(images, 1):
         base = Image.new("RGBA", (W, H), (245, 247, 250, 255))
         if ai_bg:
@@ -83,38 +97,47 @@ def render_carousel(ratio: str, images: list[str], qr_url: str | None, ai_bg: bo
         export_jpg(base, out)
         frames.append(out)
 
-    # sheet προεπισκόπησης (2xN grid)
-    cols = 2
-    rows = math.ceil(len(frames) / cols)
-    sheet = Image.new("RGBA", (cols*W + (cols-1)*20, rows*H + (rows-1)*20), (255,255,255,255))
-    for idx, fr in enumerate(frames):
-        im = Image.open(fr).convert("RGBA")
-        r = idx // cols; c = idx % cols
-        x = c*(W+20); y = r*(H+20)
-        sheet.alpha_composite(im, (x,y))
     preview = outdir / "preview.jpg"
-    export_jpg(sheet, preview, quality=88)
+    export_jpg(Image.open(frames[0]), preview, quality=88)
     return {"preview": preview, "frames": frames}
 
-def render_video(ratio: str, images: list[str], fps: int, duration: float, music: str | None, qr_url: str | None, ai_bg: bool, ai_bg_prompt, outdir: Path):
+
+def render_video(ratio: str, images: List[str], fps: int, duration: float, music: Optional[str], qr_url: Optional[str], ai_bg: bool, ai_bg_prompt, outdir: Path):
+    """
+    OpenCV-only video writer. Σταθερό σε όλα τα VM.
+    """
     W, H = ratio_to_size(ratio)
-    # πρώτα φτιάχνουμε ενδιάμεσα frames (ίδια με carousel)
+
+    # 1) Frames
     tmp = render_carousel(ratio, images, qr_url, ai_bg, ai_bg_prompt, outdir)
-    frame_files = tmp["frames"]
-    # clips ομοιόχρονα
+    frame_files: List[Path] = tmp["frames"]
+
+    # 2) Output path
+    ts = int(time.time() * 1000)
+    mp4 = outdir / f"prev_{ts}.mp4"
+
+    # 3) OpenCV writer
+    ensure_dir(mp4.parent)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    vw = cv2.VideoWriter(str(mp4), fourcc, int(fps or 30), (W, H))
+
     per_frame = max(0.3, duration / max(1, len(frame_files)))
-    clips = [ImageClip(str(f)).set_duration(per_frame).resize((W,H)) for f in frame_files]
-    video = concatenate_videoclips(clips, method="compose")
-    if music:
-        try:
-            audio = AudioFileClip(music).volumex(0.85)
-            video = video.set_audio(audio)
-        except Exception:
-            pass
-    mp4 = outdir / "out.mp4"
-    ensure_dir(outdir)
-    video.write_videofile(str(mp4), fps=fps, codec="libx264", audio_codec="aac", threads=2, verbose=False, logger=None)
-    # poster
+    repeat = max(1, int(round(per_frame * fps)))
+
+    for f in frame_files:
+        im = Image.open(f).convert("RGB").resize((W, H), Image.LANCZOS)
+        bgr = cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR)
+        for _ in range(repeat):
+            vw.write(bgr)
+
+    vw.release()
+
+    # 4) Poster
     poster = outdir / "preview.jpg"
-    Image.open(frame_files[0]).save(poster, "JPEG", quality=90)
+    Image.open(frame_files[0]).convert("RGB").save(poster, "JPEG", quality=90)
+
+    if not mp4.exists() or mp4.stat().st_size == 0:
+        log.error("VIDEO ENCODE (OpenCV) failed: %s", mp4)
+        return {"preview": poster, "frames": frame_files, "video": None}
+
     return {"preview": poster, "frames": frame_files, "video": mp4}

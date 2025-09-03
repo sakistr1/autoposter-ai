@@ -1,69 +1,46 @@
-from __future__ import annotations
+# [previews.py] — hardened image loader + multi-backend OpenCV video encoder
+# + Ken Burns + optional BGM mux + ffmpeg transcode + safe commit flow
+# + committed history in SQLite (+ /previews/committed endpoint)
+# + Creative QC (LLM) hook after render (safe fallback if OPENAI_API_KEY missing)
+# + Creative QC persistence σε SQLite (creative_qc table + _save_creative_qc)
 
-import json
-import re
-import time
-import shutil
-import sqlite3
-import typing as t
+from __future__ import annotations
+import json, re, time, shutil, sqlite3, typing as t, os, logging
 from pathlib import Path
 from io import BytesIO
+import subprocess, urllib.request
+import base64, tempfile, textwrap
 
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from pydantic import BaseModel, ConfigDict
 
-# σωστό auth import
+# ⬇️ φέρε το δικό σου dependency
 from token_module import get_current_user
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Imports με fallbacks
-# ──────────────────────────────────────────────────────────────────────────────
+# ───────── storage (fallback όταν τρέχεις εκτός πακέτου)
 try:
     from production_engine.storage import GeneratedStorage  # type: ignore
 except Exception:
     class GeneratedStorage:
-        def __init__(self) -> None:
-            pass
+        def __init__(self): ...
 
+# ───────── optional utils (αν δεν βρεθούν, έχουμε fallbacks πιο κάτω)
 _img_import_ok = False
 try:
     from production_engine.utils.img_utils import (  # type: ignore
-        load_image_from_url_or_path,
-        save_image_rgb,
-        detect_background_type,
-        image_edge_density,
-        image_sharpness,
+        load_image_from_url_or_path, save_image_rgb,
+        detect_background_type as _detect_bg, image_edge_density as _edge_den, image_sharpness as _sharp
     )
     _img_import_ok = True
 except Exception:
     try:
         from utils.img_utils import (
-            load_image_from_url_or_path,
-            save_image_rgb,
-            detect_background_type,
-            image_edge_density,
-            image_sharpness,
+            load_image_from_url_or_path, save_image_rgb,
+            detect_background_type as _detect_bg, image_edge_density as _edge_den, image_sharpness as _sharp
         )
         _img_import_ok = True
     except Exception:
         _img_import_ok = False
-
-_vid_import_ok = False
-try:
-    from production_engine.utils.video_utils import (  # type: ignore
-        build_video_from_images,
-        build_carousel_sheet,
-    )
-    _vid_import_ok = True
-except Exception:
-    try:
-        from utils.video_utils import (
-            build_video_from_images,
-            build_carousel_sheet,
-        )
-        _vid_import_ok = True
-    except Exception:
-        _vid_import_ok = False
 
 _renderer_import_ok = False
 try:
@@ -71,148 +48,110 @@ try:
     _renderer_import_ok = True
 except Exception:
     try:
-        from services.pillow_renderer import pillow_render_v2
+        from services.pillow_renderer import pillow_render_v2  # type: ignore
         _renderer_import_ok = True
     except Exception:
         _renderer_import_ok = False
 
-# PIL για εικόνες & QR paste
-from PIL import Image, ImageDraw  # type: ignore
+from PIL import Image, ImageDraw, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-# Προαιρετικό: βιβλιοθήκη για QR. Αν λείπει → 422 όταν ζητάς QR.
+# QR optional
 _qr_available = True
 try:
     import qrcode  # type: ignore
 except Exception:
     _qr_available = False
 
-# Fallbacks αν δεν γίνουν imports από utils.img_utils
-if not _img_import_ok:
-    def load_image_from_url_or_path(src: str):
-        p = src.lstrip("/")
-        return Image.open(p).convert("RGB")
-
-    def save_image_rgb(im, path: Path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        im.save(path, "JPEG", quality=92)
-
-    def detect_background_type(im): return "unknown"
-    def image_edge_density(im): return None
-    def image_sharpness(im): return None
-
-# Fallbacks αν δεν γίνουν imports για video
-if not _vid_import_ok:
-    def build_video_from_images(frames, out_path: Path, fps=30, duration_sec=6):
-        # fallback: αν δεν έχουμε video pipeline, σώζουμε poster jpg
-        out_path = Path(out_path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        frames[0].save(out_path.with_suffix(".jpg"), "JPEG", quality=92)
-
-    def build_carousel_sheet(frames):
-        first = frames[0]
-        sheet = frames[0]
-        return first, sheet
-
-# Fallback renderer: pass-through
-if not _renderer_import_ok:
-    class _RenderResult:
-        def __init__(self, image):
-            self.image = image
-            self.flags = {}
-            self.slots = {}
-            self.safe_area = {"x": 0, "y": 0, "w": image.width, "h": min(image.height, image.width)}
-    def pillow_render_v2(base_image, ratio, mapping):
-        return _RenderResult(base_image)
-
-# ──────────────────────────────────────────────────────────────────────────────
-
 router = APIRouter(prefix="/previews", tags=["previews"])
 gen = GeneratedStorage()
-
 STATIC_ROOT = Path("static").resolve()
 GENERATED = STATIC_ROOT / "generated"
 GENERATED.mkdir(parents=True, exist_ok=True)
 
-# shortlinks DB path (ίδιο με routers/shortlinks.py)
 SHORTLINK_DB = Path("static/logs/database.db")
+CREDITS_DB   = Path("static/logs/credits.db")
 
-# credits DB (ΝΕΟ)
-CREDITS_DB = Path("static/logs/credits.db")
+# κύρια SQLite (όπου ήδη υπάρχει ο πίνακας committed_posts)
+ENGINE_DB = Path("production_engine/engine.db")
 
-IMG_EXT = ".jpg"
+IMG_EXT   = ".jpg"
 SHEET_EXT = ".webp"
-MP4_EXT = ".mp4"
+MP4_EXT   = ".mp4"
+
+log = logging.getLogger("uvicorn.error")
+
 
 def _ts() -> int:
     return int(time.time() * 1000)
 
+
 def make_id(prefix: str) -> str:
     return f"{prefix}_{_ts()}"
+
 
 def gen_preview_path(prefix: str, ext: str) -> tuple[str, Path]:
     name = f"{prefix}_{_ts()}{ext}"
     rel = f"/static/generated/{name}"
-    abs_p = GENERATED / name
-    return rel, abs_p
+    return rel, GENERATED / name
+
 
 def _abs_from_url(url: str) -> Path:
-    p = url.lstrip("/")
-    if p.startswith("static/"):
-        return Path(p).resolve()
-    return (STATIC_ROOT / p).resolve()
+    s = url.lstrip("/")
+    if not s.startswith("static/"):
+        s = "static/" + s
+    return Path(s).resolve()
+
 
 def _norm_mode(m: t.Optional[str]) -> str:
     s = (m or "").strip().lower()
-    table = {
-        "normal": "normal",
-        "copy": "copy",
+    return {
         "video": "video",
         "carousel": "carousel",
-        # ελληνικά → normal
+        "copy": "copy",
+        # συνώνυμα
         "κανονικό": "normal", "κανονικο": "normal",
-        "χιουμοριστικό": "normal", "χιουμοριστικο": "normal",
-        "επαγγελματικό": "normal", "επαγγελματικο": "normal",
-        # aliases
-        "funny": "normal",
-        "professional": "normal",
-    }
-    return table.get(s, "normal")
+        "funny": "normal", "professional": "normal",
+    }.get(s, "normal")
+
 
 _price_num = re.compile(r"(\d+(?:[.,]\d+)?)")
+
+
 def _parse_price(s: t.Optional[str]) -> t.Optional[float]:
-    if not s: return None
+    if not s:
+        return None
     m = _price_num.search(s.replace(" ", ""))
-    if not m: return None
-    try: return float(m.group(1).replace(",", "."))
-    except Exception: return None
+    try:
+        return float(m.group(1).replace(",", ".")) if m else None
+    except Exception:
+        return None
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Credits helpers (ΝΕΑ)
-# ──────────────────────────────────────────────────────────────────────────────
 
+# ───────── credits
 def _credits_db():
     CREDITS_DB.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(CREDITS_DB)
-    con.execute("""CREATE TABLE IF NOT EXISTS users(
-        sub TEXT PRIMARY KEY,
-        credits INTEGER NOT NULL
-    )""")
+    con.execute("CREATE TABLE IF NOT EXISTS users(sub TEXT PRIMARY KEY, credits INTEGER NOT NULL)")
     return con
+
 
 def _get_sub(user) -> str:
     return getattr(user, "sub", None) or getattr(user, "email", None) or "demo@local"
+
 
 def get_credits(user) -> int:
     sub = _get_sub(user)
     con = _credits_db()
     row = con.execute("SELECT credits FROM users WHERE sub=?", (sub,)).fetchone()
     if not row:
-        con.execute("INSERT INTO users(sub, credits) VALUES (?, ?)", (sub, 200))
+        con.execute("INSERT INTO users(sub, credits) VALUES(?,?)", (sub, 200))
         con.commit()
         con.close()
         return 200
     con.close()
     return int(row[0])
+
 
 def charge_credits(user, amount: int):
     if amount <= 0:
@@ -220,66 +159,719 @@ def charge_credits(user, amount: int):
     sub = _get_sub(user)
     con = _credits_db()
     row = con.execute("SELECT credits FROM users WHERE sub=?", (sub,)).fetchone()
-    if not row:
-        con.execute("INSERT INTO users(sub, credits) VALUES (?, ?)", (sub, max(0, 200 - amount)))
-    else:
-        cur = max(0, int(row[0]) - amount)
+    cur = max(0, (int(row[0]) if row else 200) - amount)
+    if row:
         con.execute("UPDATE users SET credits=? WHERE sub=?", (cur, sub))
+    else:
+        con.execute("INSERT INTO users(sub, credits) VALUES(?,?)", (sub, cur))
     con.commit()
     con.close()
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Sidecar preview metadata (ΝΕΑ)
-# ──────────────────────────────────────────────────────────────────────────────
 
+# ───────── meta sidecar
 def _write_meta(preview_rel: str, meta: dict):
-    """Αποθηκεύει /static/generated/<preview>.meta.json"""
-    p = Path(preview_rel.lstrip("/"))
-    meta_path = p.with_suffix(".meta.json")
-    meta_path.parent.mkdir(parents=True, exist_ok=True)
-    meta_path.write_text(json.dumps(meta, ensure_ascii=False))
-
-def _read_meta(preview_rel: str) -> dict | None:
     p = Path(preview_rel.lstrip("/")).with_suffix(".meta.json")
-    if p.exists():
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(meta, ensure_ascii=False))
+
+
+def _read_meta(preview_rel_or_id: str) -> dict | None:
+    # δέχεται /static/generated/prev_XXXX.jpg ή σκέτο prev_XXXX
+    name = preview_rel_or_id
+    if "/" in name:
+        name = Path(name).stem
+    p = GENERATED / f"{name}.meta.json"
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+# ───────── QR helpers
+def _make_qr_pil(data: str, size_px: int) -> Image.Image:
+    if not _qr_available:
+        raise HTTPException(422, "QR requested but 'qrcode' lib missing. pip install 'qrcode[pil]'")
+    qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=2)
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    return img.resize((size_px, size_px), Image.NEAREST)
+
+
+def _paste_qr_bottom_right(base: Image.Image, qr_img: Image.Image, margin: int = 24) -> None:
+    bw, bh = base.size
+    q = qr_img.size[0]
+    x = bw - q - margin
+    y = bh - q - margin
+    pad = max(6, q // 18)
+    d = ImageDraw.Draw(base)
+    d.rectangle([x - pad, y - pad, x + q + pad, y + q + pad], fill="white")
+    base.paste(qr_img, (x, y))
+
+
+def _shortlink_db():
+    SHORTLINK_DB.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(SHORTLINK_DB)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS shortlinks("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, url TEXT, created_at INTEGER)"
+    )
+    return con
+
+
+def _create_or_get_shortlink(url: str) -> str:
+    try:
+        if re.match(r"^/go/[A-Za-z0-9]+$", url) or re.match(r"^https?://[^/]+/go/[A-Za-z0-9]+$", url):
+            return url
+        con = _shortlink_db()
+        cur = con.cursor()
+        row = cur.execute("SELECT code FROM shortlinks WHERE url=? LIMIT 1", (url,)).fetchone()
+        code = row[0] if row else hex(int(time.time() * 1000))[2:]
+        if not row:
+            cur.execute("INSERT INTO shortlinks(code, url, created_at) VALUES(?,?,?)", (code, url, int(time.time())))
+            con.commit()
+        return f"http://127.0.0.1:8000/go/{code}"
+    except Exception:
+        return url
+
+
+# ───────── quality helpers (safe wrappers)
+def detect_background_type(im):
+    try:
+        return _detect_bg(im)  # type: ignore
+    except Exception:
+        return "unknown"
+
+
+def image_edge_density(im):
+    try:
+        return _edge_den(im)  # type: ignore
+    except Exception:
+        return None
+
+
+def image_sharpness(im):
+    try:
+        return _sharp(im)  # type: ignore
+    except Exception:
+        return None
+
+
+def build_image_checks(im) -> dict:
+    ed = image_edge_density(im)
+    sh = image_sharpness(im)
+    suggestions = []
+    if ed is not None and ed < 0.7:
+        suggestions.append("καθάρισε φόντο")
+    if sh is not None and sh < 4.0:
+        suggestions.append("βάλε υψηλότερη ανάλυση ή πιο καθαρή φωτο")
+    q = "unknown"
+    if sh is not None:
+        q = "low" if sh < 3.5 else ("medium" if sh < 6.0 else "high")
+    return {
+        "category": "product",
+        "background": detect_background_type(im),
+        "quality": q,
+        "suggestions": suggestions,
+        "meta": {"edge_density": ed, "sharpness": sh},
+    }
+
+
+# ───────── hardened image loader (fallback όταν λείπουν τα utils)
+if not _img_import_ok:
+    def load_image_from_url_or_path(src: str) -> Image.Image:
+        s = (src or "").strip()
+        # προσπάθεια αν περάστηκε JSON string
         try:
-            return json.loads(p.read_text())
+            if s.startswith("{") and s.endswith("}"):
+                o = json.loads(s)
+                s = o.get("image") or o.get("url") or o.get("path") or s
         except Exception:
-            return None
+            pass
+
+        # path resolve
+        try:
+            p = Path(s.lstrip("/"))
+            if not p.is_absolute():
+                p = (Path("static") / p) if not str(p).startswith("static/") else p
+            p = p.resolve()
+        except Exception:
+            p = Path(s.lstrip("/")).resolve()
+
+        if not p.exists():
+            raise FileNotFoundError(f"Image path not found: {p}")
+
+        # 1) PIL(path)
+        try:
+            with Image.open(p) as im:
+                im.load()
+                return im.convert("RGB")
+        except Exception as e1:
+            last = f"PIL(path)={e1!s}"
+
+        data = p.read_bytes()
+
+        # 2) Parser
+        from PIL import ImageFile as _IF
+        try:
+            parser = _IF.Parser()
+            parser.feed(data)
+            im = parser.close()
+            im.load()
+            return im.convert("RGB")
+        except Exception as e2:
+            last += f"; PIL(Parser)={e2!s}"
+
+        # 3) BytesIO
+        try:
+            im = Image.open(BytesIO(data))
+            im.load()
+            return im.convert("RGB")
+        except Exception as e3:
+            last += f"; PIL(BytesIO)={e3!s}"
+
+        # 4) OpenCV
+        try:
+            import numpy as _np, cv2 as _cv2  # type: ignore
+            arr = _np.frombuffer(data, dtype=_np.uint8)
+            bgr = _cv2.imdecode(arr, _cv2.IMREAD_COLOR)
+            if bgr is None:
+                raise RuntimeError("cv2.imdecode returned None")
+            rgb = _cv2.cvtColor(bgr, _cv2.COLOR_BGR2RGB)
+            return Image.fromarray(rgb)
+        except Exception as e4:
+            last += f"; OpenCV={e4!s}"
+            raise RuntimeError(f"Failed to open image '{p}': {last}")
+
+    def save_image_rgb(im, path: Path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        im.save(path, "JPEG", quality=92)
+
+
+# ───────── Ken Burns generator
+def _generate_ken_burns_sequence(
+    images: list[Image.Image],
+    fps: int = 30,
+    seconds_per_image: float = 2.0,
+    zoom: float = 1.08,
+    crossfade_sec: float = 0.35,
+) -> list[Image.Image]:
+    """Απλός Ken Burns: zoom-in + crossfade."""
+    if not images:
+        return []
+    w, h = images[0].size
+    base: list[Image.Image] = []
+    for im in images:
+        if im.mode != "RGB":
+            im = im.convert("RGB")
+        if im.size != (w, h):
+            im = im.resize((w, h), Image.LANCZOS)
+        base.append(im)
+
+    frames: list[Image.Image] = []
+    n = max(1, int(seconds_per_image * fps))
+    nfade = max(0, int(crossfade_sec * fps))
+
+    for idx, im in enumerate(base):
+        # zoom series
+        for t in range(n):
+            s = 1.0 if n == 1 else 1.0 + (zoom - 1.0) * (t / (n - 1))
+            cw, ch = int(w / s), int(h / s)
+            x0, y0 = (w - cw) // 2, (h - ch) // 2
+            crop = im.crop((x0, y0, x0 + cw, y0 + ch))
+            frames.append(crop.resize((w, h), Image.LANCZOS))
+
+        # crossfade
+        if idx < len(base) - 1 and nfade > 0:
+            next_im = base[idx + 1]
+            last = frames[-1]
+            for k in range(nfade):
+                alpha = (k + 1) / nfade
+                frames.append(Image.blend(last, next_im, alpha))
+    return frames
+
+
+# ───────── multi-backend OpenCV encoder
+def _build_video_opencv(frames: list[Image.Image], out_path: Path, fps: int = 30) -> Path:
+    """
+    Γράφει video δοκιμάζοντας πολλαπλά backends/codes.
+    Επιστρέφει το ΠΡΑΓΜΑΤΙΚΟ τελικό path (π.χ. .mp4 ή .avi).
+    """
+    if not frames:
+        raise RuntimeError("No frames")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # normalize
+    w, h = frames[0].size
+    norm = []
+    for im in frames:
+        if im.mode != "RGB":
+            im = im.convert("RGB")
+        if im.size != (w, h):
+            im = im.resize((w, h), Image.LANCZOS)
+        norm.append(im)
+    frames = norm
+
+    import cv2, numpy as np  # type: ignore
+    CAP_FFMPEG = getattr(cv2, "CAP_FFMPEG", None)
+
+    attempts: list[tuple[object | None, str, str]] = [
+        (CAP_FFMPEG, "mp4v", ".mp4"),
+        (None, "mp4v", ".mp4"),
+        (CAP_FFMPEG, "avc1", ".mp4"),
+        (None, "avc1", ".mp4"),
+        (CAP_FFMPEG, "H264", ".mp4"),
+        (None, "H264", ".mp4"),
+        # pure-OpenCV fallbacks
+        (None, "MJPG", ".avi"),
+        (None, "XVID", ".avi"),
+    ]
+
+    last_err: Exception | None = None
+    for api, fourcc_str, ext in attempts:
+        tmp = out_path.with_name(out_path.stem + "_tmp" + ext)
+        final = out_path.with_suffix(ext)
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            ...
+
+        try:
+            fourcc = cv2.VideoWriter_fourcc(*fourcc_str)
+            if api is None:
+                vw = cv2.VideoWriter(str(tmp), fourcc, float(fps), (w, h), True)
+            else:
+                vw = cv2.VideoWriter(str(tmp), api, fourcc, float(fps), (w, h), True)
+
+            if not vw or not vw.isOpened():
+                raise RuntimeError(f"VideoWriter open failed (api={api}, fourcc={fourcc_str})")
+
+            for im in frames:
+                arr = cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR)
+                vw.write(arr)
+            vw.release()
+
+            if not tmp.exists() or tmp.stat().st_size == 0:
+                raise RuntimeError(f"Empty file after release (api={api}, fourcc={fourcc_str})")
+
+            os.replace(tmp, final)
+            log.info("VIDEO ENCODE: OK via api=%s fourcc=%s -> %s", api, fourcc_str, final.name)
+            return final
+        except Exception as e:
+            last_err = e
+            log.warning("VIDEO ENCODE attempt failed: api=%s fourcc=%s err=%s", api, fourcc_str, e)
+            try:
+                if 'vw' in locals():
+                    vw.release()
+            except Exception:
+                ...
+            try:
+                if tmp.exists():
+                    tmp.unlink()
+            except Exception:
+                ...
+            continue
+
+    raise RuntimeError(f"All writer attempts failed: {last_err!s}")
+
+
+# ───────── ffmpeg transcode helpers
+def _transcode_h264_ffmpeg(src: Path) -> Path | None:
+    """Transcode σε H.264 + yuv420p + faststart. Επιστρέφει νέο αρχείο ή None."""
+    if not shutil.which("ffmpeg"):
+        return None
+    out = src.with_name(src.stem + "_h264.mp4")
+    cmd = [
+        "ffmpeg", "-y", "-v", "error",
+        "-i", str(src),
+        "-vf", "format=yuv420p", "-r", "30",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-movflags", "+faststart",
+        "-an",
+        str(out),
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+        if out.exists() and out.stat().st_size > 0:
+            log.info("TRANSCODE h264 OK -> %s", out.name)
+            return out
+    except Exception as e:
+        log.warning("TRANSCODE h264 failed: %s", e)
     return None
 
-# ──────────────────────────────────────────────────────────────────────────────
-# AI background helpers (ΝΕΑ)
-# ──────────────────────────────────────────────────────────────────────────────
 
-def _apply_ai_bg_remove(im: Image.Image) -> Image.Image:
-    """
-    Αφαιρεί φόντο με rembg και τοποθετεί το αντικείμενο σε καθαρό λευκό background.
-    Αν λείπει το rembg → 422 με οδηγία εγκατάστασης.
-    """
+def _transcode_webm_ffmpeg(src: Path) -> Path | None:
+    if not shutil.which("ffmpeg"):
+        return None
+    out = src.with_name(src.stem + "_vp9.webm")
+    cmd = [
+        "ffmpeg", "-y", "-v", "error",
+        "-i", str(src),
+        "-c:v", "libvpx-vp9", "-b:v", "1.6M", "-pix_fmt", "yuv420p",
+        "-an",
+        str(out),
+    ]
     try:
-        from rembg import remove  # type: ignore
-    except Exception:
-        raise HTTPException(
-            status_code=422,
-            detail="ai_bg='remove' απαιτεί το πακέτο rembg. Εγκατάσταση: pip install rembg",
-        )
-    try:
-        out = remove(im)  # μπορεί να επιστρέψει PIL Image ή bytes
-        if isinstance(out, Image.Image):
-            rgba = out.convert("RGBA")
-        else:
-            rgba = Image.open(BytesIO(out)).convert("RGBA")
-        bg = Image.new("RGB", rgba.size, (255, 255, 255))
-        bg.paste(rgba, mask=rgba.split()[-1])
-        return bg
+        subprocess.run(cmd, check=True)
+        if out.exists() and out.stat().st_size > 0:
+            log.info("TRANSCODE webm OK -> %s", out.name)
+            return out
     except Exception as e:
-        raise HTTPException(500, f"Background removal failed: {e}")
+        log.warning("TRANSCODE webm failed: %s", e)
+    return None
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Schemas
-# ──────────────────────────────────────────────────────────────────────────────
 
+def _wait_for_file(path: Path, timeout: float = 30.0, poll: float = 0.3) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            st = path.stat()
+            if st.st_size > 0:
+                return True
+        except FileNotFoundError:
+            ...
+        time.sleep(poll)
+    return False
+
+
+# ───────── BGM helpers (ffmpeg mux)
+def _mux_audio_ffmpeg(video: Path, audio: Path) -> Path | None:
+    """Mux mp3 πάνω στο video χωρίς re-encode video."""
+    if not shutil.which("ffmpeg"):
+        log.warning("BGM: ffmpeg not found; αφήνω το video σιωπηλό.")
+        return None
+    if not audio.exists() or audio.stat().st_size == 0:
+        log.warning("BGM: audio file missing/empty: %s", audio)
+        return None
+    out = video.with_name(video.stem + "_bgm" + video.suffix)
+    cmd = [
+        "ffmpeg", "-y", "-v", "error",
+        "-i", str(video),
+        "-i", str(audio),
+        "-c:v", "copy",
+        "-map", "0:v:0", "-map", "1:a:0",
+        "-shortest",
+        str(out),
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+        if out.exists() and out.stat().st_size > 0:
+            log.info("BGM mux OK -> %s", out.name)
+            return out
+    except Exception as e:
+        log.warning("BGM mux failed: %s", e)
+    return None
+
+
+def _resolve_bgm(mapping: dict) -> Path | None:
+    """
+    BGM από mapping['bgm_url'] ή default static/assets/bgm.mp3.
+    Αν είναι http(s) το κατεβάζει σε static/assets/bgm_dl.mp3.
+    """
+    url = (mapping or {}).get("bgm_url")
+    assets = STATIC_ROOT / "assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    default_mp3 = assets / "bgm.mp3"
+
+    if url:
+        try:
+            if url.startswith("http://") or url.startswith("https://"):
+                dest = assets / "bgm_dl.mp3"
+                urllib.request.urlretrieve(url, dest)
+                return dest if dest.exists() and dest.stat().st_size > 0 else None
+            p = _abs_from_url(url)
+            return p if p.exists() and p.stat().st_size > 0 else None
+        except Exception as e:
+            log.warning("BGM: download/resolve failed: %s", e)
+
+    if default_mp3.exists() and default_mp3.stat().st_size > 0:
+        return default_mp3
+    return None
+
+
+# ───────── Creative QC (LLM) — safe, embedded, optional
+OPENAI_MODEL = os.getenv("OPENAI_CREATIVE_QC_MODEL", "gpt-4o-mini")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+def _creative_schema() -> dict:
+    return {
+      "verdict":"approve|revise|reject",
+      "priority":"low|medium|high",
+      "issues":[{"id":"composition|color|text|asset_mismatch|low_quality|brand","severity":"low|med|high","msg":"..."}],
+      "instructions":[{"op":"rerender|reorder_images|replace_image|kenburns|contrast|saturation|add_overlay|bgm|crop|resize|speed|cta_copy","params":{}}],
+      "alt_copy":{"headline":"","subline":"","cta":"","hashtags":[]},
+      "assets":{"keep":[],"replace":[{"slot":1,"reason":"","hint":""}]}
+    }
+
+def _path_to_data_url(p: Path) -> str | None:
+    try:
+        if not p.exists() or p.stat().st_size == 0:
+            return None
+        ext = p.suffix.lower()
+        mime = "image/jpeg"
+        if ext in (".png",): mime = "image/png"
+        if ext in (".webp",): mime = "image/webp"
+        b = p.read_bytes()
+        return f"data:{mime};base64,{base64.b64encode(b).decode('utf-8')}"
+    except Exception:
+        return None
+
+def _make_contact_sheet(video_path: Path) -> Path | None:
+    try:
+        out = Path(tempfile.NamedTemporaryFile(prefix="cs_", suffix=".jpg", delete=False).name)
+        cmd = [
+            "ffmpeg","-y","-v","error",
+            "-i", str(video_path),
+            "-frames:v","3",
+            "-vf","select='not(mod(n, max(n/3,1)))',tile=3x1,scale=900:-1",
+            str(out)
+        ]
+        subprocess.run(cmd, check=True)
+        return out if out.exists() and out.stat().st_size>0 else None
+    except Exception:
+        return None
+
+def _build_creative_messages(product: dict, brand: dict, schema: dict, context: dict) -> list[dict]:
+    sys_msg = textwrap.dedent("""
+    Είσαι Creative Quality Controller για social ads. Αξιολόγησε οπτικά (σύνθεση/αντίθεση/ταιριαστότητα),
+    συμμόρφωση σε 4:5 / 9:16, καταλληλότητα asset (να δείχνει προϊόν), ευκρίνεια, υπερβολικά “busy”.
+    Επέστρεψε ΑΠΟΚΛΕΙΣΤΙΚΑ JSON που ταιριάζει στο SCHEMA — χωρίς προλόγους.
+    Προτίμηση: product-centric, καθαρό φόντο, δυνατό CTA, ισορροπημένος Ken Burns.
+    """).strip()
+    return [
+        {"role":"system","content":sys_msg},
+        {"role":"user","content":f"SCHEMA:\n{json.dumps(schema, ensure_ascii=False)}"},
+        {"role":"user","content":f"CONTEXT:\n{json.dumps({'product':product,'brand':brand,**context}, ensure_ascii=False)}"},
+        {"role":"user","content":"Απάντησε ΜΟΝΟ με JSON σύμφωνα με το SCHEMA."}
+    ]
+
+def _run_creative_qc(product: dict, image_paths: list[Path], video_path: Path | None, brand: dict) -> dict:
+    """Κλήση LLM με data-URIs (δεν απαιτεί public URLs). Safe fallback αν λείπει API key/bibl."""
+    # ετοιμασία multimodal content
+    content = [{"type":"text","text":"JSON ONLY."}]
+    # contact sheet από video (αν υπάρχει)
+    if video_path is not None:
+        cs = _make_contact_sheet(video_path)
+        if cs:
+            d = _path_to_data_url(cs)
+            if d:
+                content.append({"type":"image_url","image_url":{"url": d}})
+            try:
+                cs.unlink(missing_ok=True)
+            except Exception:
+                ...
+    # έως 4 εικόνες
+    for p in image_paths[:4]:
+        d = _path_to_data_url(p)
+        if d:
+            content.append({"type":"image_url","image_url":{"url": d}})
+
+    schema = _creative_schema()
+    msgs = _build_creative_messages(product, brand, schema, context={"has_video": bool(video_path)})
+    msgs.append({"role":"user","content":content})
+
+    # εκτέλεση
+    if not OPENAI_API_KEY:
+        import os as _os
+        if _os.getenv("QC_STRICT", "0") == "1":
+            return {
+                "ok": False,
+                "error": "no_api_key",
+                "data": {"verdict":"revise","priority":"high","issues":[], "instructions":[], "alt_copy":{"headline":"","subline":"","cta":"","hashtags":[]}, "assets":{"keep":[str(p) for p in image_paths],"replace":[]}}
+            }
+        return {
+            "ok": False,
+            "error": "no_api_key",
+            "data": {
+                "verdict":"approve","priority":"low",
+                "issues":[], "instructions":[],
+                "alt_copy":{"headline":"","subline":"","cta":"","hashtags":[]},
+                "assets":{"keep":[str(p) for p in image_paths],"replace":[]}
+            }
+        }
+    try:
+        try:
+            from openai import OpenAI  # type: ignore
+        except Exception:
+            # παλιό SDK fallback
+            return {
+                "ok": False,
+                "error": "openai_sdk_missing",
+                "data": {
+                    "verdict":"approve","priority":"low",
+                    "issues":[], "instructions":[],
+                    "alt_copy":{"headline":"","subline":"","cta":"","hashtags":[]},
+                    "assets":{"keep":[str(p) for p in image_paths],"replace":[]}
+                }
+            }
+
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        resp = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=msgs,
+            temperature=0.3,
+            response_format={"type":"json_object"},
+            max_tokens=800
+        )
+        raw = resp.choices[0].message.content
+        data = json.loads(raw)
+        return {"ok": True, "data": data}
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": str(e),
+            "data": {
+              "verdict":"approve","priority":"low",
+              "issues":[], "instructions":[],
+              "alt_copy":{"headline":"","subline":"","cta":"","hashtags":[]},
+              "assets":{"keep":[str(p) for p in image_paths],"replace":[]}
+            }
+        }
+
+
+# ───────── ENGINE DB helpers (ιστορικό committed + QC persistence)
+def _engine_conn() -> sqlite3.Connection:
+    ENGINE_DB.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(ENGINE_DB)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS committed_posts ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "preview_id VARCHAR NOT NULL,"
+        "urls_json TEXT NOT NULL,"
+        "created_at DATETIME DEFAULT (strftime('%s','now')))"
+    )
+    # NEW: creative_qc table
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS creative_qc ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "preview_id TEXT NOT NULL,"
+        "verdict TEXT NOT NULL,"
+        "priority TEXT,"
+        "json TEXT NOT NULL,"
+        "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+    )
+    con.execute("CREATE INDEX IF NOT EXISTS idx_creative_qc_preview ON creative_qc(preview_id)")
+    return con
+
+
+def _record_commit(preview_id: str, media_url: str, thumb_url: str, vtype: str = "video") -> None:
+    """Εγγραφή/ενημέρωση committed_posts (upsert by preview_id)."""
+    payload = {"media_url": media_url, "thumb_url": thumb_url, "type": vtype}
+    urls_json = json.dumps(payload, ensure_ascii=False)
+    con = _engine_conn()
+    cur = con.cursor()
+    row = cur.execute("SELECT id FROM committed_posts WHERE preview_id=? LIMIT 1", (preview_id,)).fetchone()
+    if row:
+        cur.execute(
+            "UPDATE committed_posts SET urls_json=?, created_at=strftime('%s','now') WHERE id=?",
+            (urls_json, row[0]),
+        )
+    else:
+        cur.execute(
+            "INSERT INTO committed_posts(preview_id, urls_json, created_at) VALUES(?,?,strftime('%s','now'))",
+            (preview_id, urls_json),
+        )
+    con.commit()
+    con.close()
+
+
+def _select_committed(limit: int = 10, offset: int = 0) -> list[dict]:
+    """
+    ΦΟΡΤΩΝΕΙ ανθεκτικά παλιά/νέα σχήματα:
+    - dict: {'media_url','thumb_url','type'}
+    - list[dict|str]
+    - plain string (άμεσο url)
+    """
+    con = _engine_conn()
+    con.row_factory = sqlite3.Row
+    rows = con.execute(
+        "SELECT id, preview_id, urls_json, created_at FROM committed_posts "
+        "ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        (int(limit), int(offset)),
+    ).fetchall()
+    con.close()
+
+    items: list[dict] = []
+    for r in rows:
+        # robust payload parsing
+        media_url: str | None = None
+        thumb_url: str | None = None
+        vtype: str | None = None
+        try:
+            raw = r["urls_json"] or "{}"
+            payload = json.loads(raw)
+        except Exception:
+            payload = {}
+
+        if isinstance(payload, dict):
+            media_url = payload.get("media_url") or payload.get("url") or payload.get("href")
+            thumb_url = payload.get("thumb_url")
+            vtype = payload.get("type")
+        elif isinstance(payload, list) and payload:
+            first = payload[0]
+            if isinstance(first, dict):
+                media_url = first.get("media_url") or first.get("url") or first.get("href")
+                thumb_url = first.get("thumb_url")
+                vtype = first.get("type")
+            elif isinstance(first, str):
+                media_url = first
+        elif isinstance(payload, str):
+            media_url = payload
+
+        # type inference αν λείπει
+        if not vtype:
+            vtype = "video" if str(media_url or "").lower().endswith((".mp4", ".webm", ".avi")) else "image"
+
+        abs_media = (
+            f"http://127.0.0.1:8000{media_url}" if (media_url and str(media_url).startswith("/static/")) else media_url
+        )
+        abs_thumb = (
+            f"http://127.0.0.1:8000{thumb_url}" if (thumb_url and str(thumb_url).startswith("/static/")) else thumb_url
+        )
+        items.append(
+            {
+                "id": r["id"],
+                "preview_id": r["preview_id"],
+                "type": vtype,
+                "media_url": media_url,
+                "thumb_url": thumb_url,
+                "absolute_url": abs_media,
+                "thumb_absolute_url": abs_thumb,
+                "created_at": int(r["created_at"]) if str(r["created_at"]).isdigit() else r["created_at"],
+            }
+        )
+    return items
+
+
+
+# NEW: αποθήκευση creative_qc
+def _save_creative_qc(preview_id: str, qc: dict):
+    try:
+        con = _engine_conn()
+        data = qc.get("data", {}) if isinstance(qc, dict) else {}
+        verdict = str(data.get("verdict", "approve")) if isinstance(data, dict) else "approve"
+        priority = str(data.get("priority", "")) if isinstance(data, dict) else ""
+        con.execute(
+            "INSERT INTO creative_qc(preview_id, verdict, priority, json) VALUES(?,?,?,?)",
+            (preview_id, verdict, priority, json.dumps(qc, ensure_ascii=False)),
+        )
+        con.commit()
+        con.close()
+    except Exception as e:
+        log.warning("creative_qc save failed: %s", e)
+
+def _latest_qc_verdict(preview_id: str) -> str | None:
+    try:
+        con = _engine_conn()
+        row = con.execute(
+            "SELECT verdict FROM creative_qc WHERE preview_id=? ORDER BY id DESC LIMIT 1",
+            (preview_id,),
+        ).fetchone()
+        con.close()
+        return row[0] if row else None
+    except Exception:
+        return None
+
+
+# ───────── schemas
 class MappingV2(BaseModel):
     title: t.Optional[str] = None
     price: t.Optional[str] = None
@@ -290,10 +882,11 @@ class MappingV2(BaseModel):
     discount_pct: t.Optional[str] = None
     target_url: t.Optional[str] = None
     qr_enabled: t.Optional[bool] = None
+    # προαιρετικό: bgm_url
+
 
 class RenderRequest(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
     use_renderer: bool = True
     ratio: str = "4:5"
     mode: t.Optional[str] = "normal"
@@ -309,209 +902,181 @@ class RenderRequest(BaseModel):
     new_price: t.Optional[str] = None
     discount_pct: t.Optional[str] = None
     cta_text: t.Optional[str] = None
+
     target_url: t.Optional[str] = None
     qr: t.Optional[bool] = None
 
-    # ΝΕΑ πεδία
-    ai_bg: t.Optional[str] = None           # "remove" | "generate"(reserved)
-    ai_bg_prompt: t.Optional[str] = None    # reserved για generate
+    ai_bg: t.Optional[str] = None
+    ai_bg_prompt: t.Optional[str] = None
 
-    mapping: t.Optional[MappingV2] = None
+    extra_images: t.Optional[list[t.Union[str, dict]]] = None
+    images: t.Optional[list[t.Union[str, dict]]] = None
+    media_urls: t.Optional[list[t.Union[str, dict]]] = None
+
+    mapping: t.Optional[MappingV2 | dict] = None
     meta: t.Optional[t.Union[dict, str]] = None
+
 
 class CommitRequest(BaseModel):
     preview_id: t.Optional[str] = None
     preview_url: t.Optional[str] = None
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
-def build_image_checks(im) -> dict:
-    try: bg = detect_background_type(im)
-    except Exception: bg = "unknown"
-    try: ed = image_edge_density(im)
-    except Exception: ed = None
-    try: sh = image_sharpness(im)
-    except Exception: sh = None
+class RegenerateRequest(BaseModel):
+    preview_id: str
+    max_passes: int = 1
 
-    suggestions = []
-    if ed is not None and ed < 0.7: suggestions.append("καθάρισε φόντο")
-    if sh is not None and sh < 4.0: suggestions.append("βάλε υψηλότερη ανάλυση ή πιο καθαρή φωτο")
 
-    quality = "unknown"
-    if sh is not None:
-        if sh < 3.5: quality = "low"
-        elif sh < 6.0: quality = "medium"
-        else: quality = "high"
+# ───────── helpers
+def _collect_images_from_request(req: RenderRequest) -> list[str]:
+    collected: list[t.Union[str, dict]] = []
+    for key in ("extra_images", "images", "media_urls"):
+        arr = getattr(req, key, None)
+        if arr:
+            collected.extend(arr)
 
-    return {
-        "category": None,
-        "background": bg or "unknown",
-        "quality": quality,
-        "suggestions": suggestions,
-        "meta": {"edge_density": ed, "sharpness": sh},
-    }
+    body = None
+    if isinstance(req.meta, str):
+        try:
+            body = json.loads(req.meta)
+        except Exception:
+            body = None
+    elif isinstance(req.meta, dict):
+        body = req.meta
 
-def _make_qr_pil(data: str, size_px: int) -> Image.Image:
-    if not _qr_available:
-        raise HTTPException(422, "QR requested but qrcode library is not installed. Run: pip install 'qrcode[pil]'")
-    qr = qrcode.QRCode(
-        version=None,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=10,
-        border=2,
-    )
-    qr.add_data(data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-    return img.resize((size_px, size_px), Image.NEAREST)
+    if isinstance(body, dict):
+        imgs = body.get("images") or []
+        if imgs:
+            collected.extend(imgs)
 
-def _paste_qr_bottom_right(base: Image.Image, qr_img: Image.Image, margin: int = 24) -> None:
-    bw, bh = base.size
-    q = qr_img.size[0]
-    x = bw - q - margin
-    y = bh - q - margin
-    pad = max(6, q // 18)
-    draw = ImageDraw.Draw(base)
-    draw.rectangle([x - pad, y - pad, x + q + pad, y + q + pad], fill="white")
-    base.paste(qr_img, (x, y))
+    if req.image_url:
+        try:
+            b2 = json.loads(req.image_url)
+            imgs2 = (b2 or {}).get("images") or []
+            if imgs2:
+                collected.extend(imgs2)
+        except Exception:
+            # όχι JSON, απλό url
+            collected.append(req.image_url)
 
-def _shortlink_db():
-    SHORTLINK_DB.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(SHORTLINK_DB)
-    con.execute(
-        "CREATE TABLE IF NOT EXISTS shortlinks (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, url TEXT, created_at INTEGER)"
-    )
-    return con
+    urls: list[str] = []
+    seen: set[str] = set()
+    for it in collected:
+        url = it.get("image") or it.get("url") or it.get("path") if isinstance(it, dict) else str(it)
+        if url and url not in seen:
+            seen.add(url)
+            urls.append(url)
+    return urls
 
-def _create_or_get_shortlink(url: str) -> str:
-    """επιστρέφει absolute short URL (http://127.0.0.1:8000/go/<code>) — idempotent ανά url"""
-    try:
-        # Αν ήδη είναι /go/<code>, μην δημιουργείς νέο
-        if re.match(r"^/go/[A-Za-z0-9]+$", url) or re.match(r"^https?://[^/]+/go/[A-Za-z0-9]+$", url):
-            return url
 
-        con = _shortlink_db()
-        cur = con.cursor()
-        row = cur.execute("SELECT code FROM shortlinks WHERE url=? LIMIT 1", (url,)).fetchone()
-        if row:
-            code = row[0]
-        else:
-            code = hex(int(time.time() * 1000))[2:]
-            cur.execute("INSERT INTO shortlinks (code,url,created_at) VALUES (?,?,?)", (code, url, int(time.time())))
-            con.commit()
-        return f"http://127.0.0.1:8000/go/{code}"
-    except Exception:
-        # fallback: γύρνα το αρχικό url
-        return url
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Routes
-# ──────────────────────────────────────────────────────────────────────────────
-
-router = APIRouter(prefix="/previews", tags=["previews"])
-
+# ───────── routes
 @router.post("/render")
-def render_preview(
-    req: RenderRequest = Body(...),
-    user = Depends(get_current_user),
-):
+def render_preview(req: RenderRequest = Body(...), user=Depends(get_current_user)):
     ratio = req.ratio or "4:5"
     mode = _norm_mode(req.mode)
 
-    # Aliases → canonical
     if not req.image_url and req.product_image_url:
         req.image_url = req.product_image_url
     if not req.logo_url and req.brand_logo_url:
         req.logo_url = req.brand_logo_url
 
-    # Mapping
     mapping: dict = {}
     if isinstance(req.mapping, MappingV2):
-        # FIX: model_dump αντί για asdict
         mapping.update(req.mapping.model_dump(exclude_none=True))
     elif isinstance(req.mapping, dict):
         mapping.update(req.mapping)
 
-    if req.title: mapping.setdefault("title", req.title)
-    if req.price: mapping.setdefault("price", req.price)
-    if req.old_price: mapping.setdefault("old_price", req.old_price)
-    if req.cta_text: mapping.setdefault("cta", req.cta_text)
-    if req.logo_url: mapping.setdefault("logo_url", req.logo_url)
-    if req.target_url: mapping.setdefault("target_url", req.target_url)
-    if req.qr is not None: mapping.setdefault("qr_enabled", bool(req.qr))
+    if req.title:
+        mapping.setdefault("title", req.title)
+    if req.price:
+        mapping.setdefault("price", req.price)
+    if req.old_price:
+        mapping.setdefault("old_price", req.old_price)
+    if req.cta_text:
+        mapping.setdefault("cta", req.cta_text)
+    if req.logo_url:
+        mapping.setdefault("logo_url", req.logo_url)
+    if req.target_url:
+        mapping.setdefault("target_url", req.target_url)
+    if req.qr is not None:
+        mapping.setdefault("qr_enabled", bool(req.qr))
 
-    # discount_pct auto
+    # auto discount
     if not mapping.get("discount_pct"):
-        old_f = _parse_price(req.old_price)
-        new_f = _parse_price(req.new_price)
-        if (old_f and new_f) and old_f > 0 and new_f < old_f:
-            pct = int(round((1 - (new_f / old_f)) * 100))
-            mapping["discount_pct"] = f"-{pct}%"
+        of = _parse_price(req.old_price)
+        nf = _parse_price(req.new_price)
+        if (of and nf) and of > 0 and nf < of:
+            mapping["discount_pct"] = f"-{int(round((1 - (nf / of)) * 100))}%"
             mapping.setdefault("discount_badge", True)
     else:
         mapping.setdefault("discount_badge", True)
 
-    # Helper για QR/shortlink από όποιο πεδίο έρθει
     def _want_qr_and_url() -> tuple[bool, str | None]:
         tgt = req.target_url or mapping.get("target_url")
-        want_qr = bool(req.qr) or bool(mapping.get("qr_enabled")) or bool(tgt)
-        return want_qr, tgt
+        want = bool(req.qr) or bool(mapping.get("qr_enabled")) or bool(tgt)
+        return want, tgt
 
-    # ============= VIDEO ======================================================
+    # ========== VIDEO ==========
     if mode == "video":
-        body = json.loads(req.meta or "{}") if isinstance(req.meta, str) else (req.meta or {})
-        images = body.get("images") or []
-        if not images:
-            try:
-                body2 = json.loads(req.image_url or "{}")
-                images = body2.get("images") or []
-            except Exception:
-                pass
+        images = _collect_images_from_request(req)
         if not images:
             raise HTTPException(400, "No images for video mode")
 
-        # PRE-FLIGHT: έλεγχος ύπαρξης όλων των paths
+        # preflight
         missing: list[str] = []
-        for it in images:
-            url = it["image"] if isinstance(it, dict) else it
+        bad: list[str] = []
+        for url in images:
             try:
-                if not _abs_from_url(url).exists():
+                p = _abs_from_url(url)
+                if not p.exists():
                     missing.append(url)
+                    continue
+                _ = load_image_from_url_or_path(url)  # δοκιμή φόρτωσης
             except Exception:
-                missing.append(url)
+                bad.append(url)
         if missing:
-            raise HTTPException(status_code=422, detail={"error": "missing_images", "missing": missing})
+            raise HTTPException(422, detail={"error": "missing_images", "missing": missing})
+        if bad:
+            raise HTTPException(422, detail={"error": "bad_images", "bad": bad})
 
-        frames = []
-        for it in images:
-            url = it["image"] if isinstance(it, dict) else it
+        # load + optional background remove
+        frames: list[Image.Image] = []
+        for url in images:
             im = load_image_from_url_or_path(url)
-            # AI background remove (αν ζητήθηκε)
             if req.ai_bg == "remove":
-                im = _apply_ai_bg_remove(im)
+                try:
+                    from rembg import remove  # type: ignore
+                    out = remove(im)
+                    if isinstance(out, Image.Image):
+                        im = out.convert("RGBA")
+                    else:
+                        im = Image.open(BytesIO(out)).convert("RGBA")
+                    bg = Image.new("RGB", im.size, (255, 255, 255))
+                    bg.paste(im, mask=im.split()[-1])
+                    im = bg
+                except Exception as e:
+                    log.error("AI BG remove failed: %s", e)
             frames.append(im)
 
-        # TEMPLATE OVERLAY σε κάθε frame (πριν το QR)
+        # template overlay (αν υπάρχει)
         try:
-            rendered_frames = []
-            for im0 in frames:
-                try:
-                    r = pillow_render_v2(base_image=im0, ratio=ratio, mapping=mapping)
-                    rendered_frames.append(r.image)
-                except Exception:
-                    rendered_frames.append(im0)
-            frames = rendered_frames
+            if _renderer_import_ok:
+                rendered: list[Image.Image] = []
+                for im0 in frames:
+                    try:
+                        r = pillow_render_v2(base_image=im0, ratio=ratio, mapping=mapping)
+                        rendered.append(r.image)
+                    except Exception:
+                        rendered.append(im0)
+                frames = rendered
         except Exception:
-            pass
+            ...
 
-        # QR/Shortlink πάνω στα frames (αν ζητήθηκε ή υπάρχει target_url)
+        # QR (αν ζητήθηκε / υπάρχει URL)
         short_url = None
         want_qr, tgt_url = _want_qr_and_url()
         if want_qr and tgt_url:
             short_url = _create_or_get_shortlink(tgt_url)
-            # μέγεθος QR 160..360 ανάλογα με το μέγεθος frame
             w0, h0 = frames[0].size
             qr_side = int(max(160, min(0.22 * min(w0, h0), 360)))
             qr_img = _make_qr_pil(short_url, qr_side)
@@ -519,82 +1084,145 @@ def render_preview(
             for i in range(len(frames)):
                 _paste_qr_bottom_right(frames[i], qr_img, margin=margin)
 
-        # paths
-        mp4_rel, mp4_abs = gen_preview_path("prev", MP4_EXT)
-        # build video (ή poster fallback)
-        build_video_from_images(frames, mp4_abs, fps=body.get("fps", 30), duration_sec=body.get("duration_sec", 6))
+        # Ken Burns πριν την κωδικοποίηση
+        try:
+            kb_frames = _generate_ken_burns_sequence(
+                frames, fps=30, seconds_per_image=2.0, zoom=1.08, crossfade_sec=0.35
+            )
+            if kb_frames:
+                frames = kb_frames
+        except Exception as e:
+            log.warning("Ken Burns generation failed: %s", e)
 
-        # poster (πάντα)
+        # encode
         poster_rel, poster_abs = gen_preview_path("prev", IMG_EXT)
-        save_image_rgb(frames[0], poster_abs)
+        base_rel, base_abs = gen_preview_path("prev", MP4_EXT)  # στόχος (ext μπορεί να αλλάξει)
+        encode_status = None
+        real_abs: Path | None = None
 
-        # META: video flat cost 5
-        _write_meta(poster_rel, {"type": "video", "frames": len(frames), "cost": 5})
+        try:
+            real_abs = _build_video_opencv(frames, base_abs, fps=30)  # τελικό path (mp4/avi)
+        except Exception as e:
+            log.error("VIDEO ENCODE: %s", e)
+            encode_status = "error"
 
-        return {
+        video_ok = False
+        real_rel = base_rel
+        if encode_status is None and real_abs is not None:
+            video_ok = _wait_for_file(real_abs, timeout=30.0, poll=0.3)
+            if not video_ok:
+                log.error("VIDEO ENCODE: file not found or zero-size after timeout: %s", real_abs)
+                encode_status = "timeout"
+            else:
+                # ΠΑΓΙΟΠΟΙΗΣΗ: Transcode για browser-safe (H.264 + yuv420p + faststart)
+                try:
+                    tr = _transcode_h264_ffmpeg(real_abs)
+                    if tr and tr.exists() and tr.stat().st_size > 0:
+                        real_abs = tr
+                except Exception as e:
+                    log.warning("Transcode step failed: %s", e)
+
+                # (προαιρετικό) webm fallback
+                try:
+                    _transcode_webm_ffmpeg(real_abs)
+                except Exception:
+                    ...
+
+                real_rel = f"/static/generated/{real_abs.name}"
+
+        # poster
+        try:
+            frames[0].convert("RGB").save(poster_abs, "JPEG", quality=92)
+        except Exception as e:
+            log.error("POSTER SAVE failed: %s", e)
+
+        # BGM (ffmpeg mux) αν υπάρχει διαθέσιμο mp3
+        try:
+            if video_ok:
+                bgm = _resolve_bgm(mapping)
+                if bgm:
+                    mixed = _mux_audio_ffmpeg(real_abs, bgm)  # type: ignore[arg-type]
+                    if mixed and mixed.exists() and mixed.stat().st_size > 0:
+                        real_abs = mixed
+                        real_rel = f"/static/generated/{real_abs.name}"
+        except Exception as e:
+            log.warning("BGM step failed: %s", e)
+
+        _write_meta(poster_rel, {"type": "video", "frames": len(frames), "cost": 5, "render_context": {"mode": "video", "ratio": ratio, "images": images, "mapping": mapping}})
+
+        plan = {
+            "type": "video",
+            "ratio": ratio,
+            "image_check": {"category": "product", "quality": "ok", "background": "clean", "suggestions": [], "meta": {}},
+        }
+        plan["video_url"] = real_rel if video_ok else None
+        if not video_ok:
+            plan["encode_status"] = encode_status or "unknown"
+
+        # ===== Creative QC (LLM) =====
+        creative_qc = None
+        try:
+            product_ctx = {
+                "title": mapping.get("title"),
+                "price": mapping.get("price"),
+                "cta": mapping.get("cta"),
+                "discount_pct": mapping.get("discount_pct")
+            }
+            brand_ctx = {"colors": [], "logo_required": False, "tone": "clean-minimal"}
+            image_paths = [ _abs_from_url(u) for u in images ]
+            creative_qc = _run_creative_qc(product_ctx, image_paths, real_abs if video_ok else None, brand_ctx)
+        except Exception as e:
+            creative_qc = {"ok": False, "error": f"creative_qc_failed: {e}"}
+
+        # NEW: αποθήκευση creative_qc
+        try:
+            preview_id = Path(poster_rel).stem
+            if creative_qc:
+                _save_creative_qc(preview_id, creative_qc)
+        except Exception as e:
+            log.warning("save creative_qc (video) failed: %s", e)
+
+        resp = {
             "status": "ok",
             "mode": "video",
             "preview_url": poster_rel,
             "absolute_url": f"http://127.0.0.1:8000{poster_rel}",
             "short_url": short_url,
             "target_url_raw": tgt_url,
-            "plan": {
-                "type": "video",
-                "ratio": ratio,
-                "video_url": mp4_rel,
-                "shortlink": {"raw": tgt_url, "short": short_url},
-                "image_check": {"category": "product", "quality": "ok", "background": "clean", "suggestions": [], "meta": {}},
-            },
+            "plan": plan,
+            "video_url": plan["video_url"],
+            "encode_status": plan.get("encode_status"),
+            "creative_qc": creative_qc,
         }
+        return resp
 
-    # ============= CAROUSEL ===================================================
+    # ========== CAROUSEL ==========
     if mode == "carousel":
-        body = json.loads(req.meta or "{}") if isinstance(req.meta, str) else (req.meta or {})
-        images = body.get("images") or []
-        if not images:
-            try:
-                body2 = json.loads(req.image_url or "{}")
-                images = body2.get("images") or []
-            except Exception:
-                pass
+        images = _collect_images_from_request(req)
         if not images:
             raise HTTPException(400, "No images for carousel mode")
-
-        # PRE-FLIGHT: έλεγχος ύπαρξης όλων των paths
-        missing: list[str] = []
-        for it in images:
-            url = it["image"] if isinstance(it, dict) else it
+        missing = []
+        for url in images:
             try:
                 if not _abs_from_url(url).exists():
                     missing.append(url)
             except Exception:
                 missing.append(url)
         if missing:
-            raise HTTPException(status_code=422, detail={"error": "missing_images", "missing": missing})
+            raise HTTPException(422, detail={"error": "missing_images", "missing": missing})
 
-        frames = []
-        for it in images:
-            url = it["image"] if isinstance(it, dict) else it
-            im = load_image_from_url_or_path(url)
-            # AI background remove (αν ζητήθηκε)
-            if req.ai_bg == "remove":
-                im = _apply_ai_bg_remove(im)
-            frames.append(im)
-
-        # TEMPLATE OVERLAY σε κάθε frame (πριν το QR)
+        frames = [load_image_from_url_or_path(u) for u in images]
         try:
-            rendered_frames = []
+            rendered = []
             for im0 in frames:
                 try:
-                    r = pillow_render_v2(base_image=im0, ratio=ratio, mapping=mapping)
-                    rendered_frames.append(r.image)
+                    rendered.append(pillow_render_v2(base_image=im0, ratio=ratio, mapping=mapping).image)
                 except Exception:
-                    rendered_frames.append(im0)
-            frames = rendered_frames
+                    rendered.append(im0)
+            frames = rendered
         except Exception:
-            pass
+            ...
 
-        # QR/Shortlink πάνω σε ΚΑΘΕ frame (αν ζητήθηκε ή υπάρχει target_url)
         short_url = None
         want_qr, tgt_url = _want_qr_and_url()
         if want_qr and tgt_url:
@@ -608,14 +1236,33 @@ def render_preview(
 
         sheet_rel, sheet_abs = gen_preview_path("prev", SHEET_EXT)
         first_rel, first_abs = gen_preview_path("prev", SHEET_EXT)
+        frames[0].save(first_abs, "WEBP", quality=90)
+        frames[0].save(sheet_abs, "WEBP", quality=90)
 
-        first_frame, sheet = build_carousel_sheet(frames)
-        sheet.save(sheet_abs, "WEBP", quality=90)
-        first_frame.save(first_abs, "WEBP", quality=90)
+        _write_meta(sheet_rel, {"type": "carousel", "frames": len(frames), "cost": len(frames), "render_context": {"mode": "carousel", "ratio": ratio, "images": images, "mapping": mapping}})
 
-        # META: cost ανά frame
-        frames_count = len(frames)
-        _write_meta(sheet_rel, {"type": "carousel", "frames": frames_count, "cost": frames_count})
+        # Creative QC για carousel (μέχρι 4 εικόνες)
+        creative_qc = None
+        try:
+            product_ctx = {
+                "title": mapping.get("title"),
+                "price": mapping.get("price"),
+                "cta": mapping.get("cta"),
+                "discount_pct": mapping.get("discount_pct")
+            }
+            brand_ctx = {"colors": [], "logo_required": False, "tone": "clean-minimal"}
+            image_paths = [ _abs_from_url(u) for u in images ]
+            creative_qc = _run_creative_qc(product_ctx, image_paths, None, brand_ctx)
+        except Exception as e:
+            creative_qc = {"ok": False, "error": f"creative_qc_failed: {e}"}
+
+        # NEW: αποθήκευση creative_qc
+        try:
+            preview_id = Path(sheet_rel).stem
+            if creative_qc:
+                _save_creative_qc(preview_id, creative_qc)
+        except Exception as e:
+            log.warning("save creative_qc (carousel) failed: %s", e)
 
         return {
             "status": "ok",
@@ -625,37 +1272,33 @@ def render_preview(
             "sheet_url": sheet_rel,
             "first_frame_url": first_rel,
             "short_url": short_url,
-            "target_url_raw": tgt_url,
             "plan": {
                 "type": "carousel",
                 "ratio": ratio,
                 "image_check": {"category": "product", "quality": "ok", "background": "clean", "suggestions": [], "meta": {}},
             },
+            "creative_qc": creative_qc,
         }
 
-    # ============= IMAGE (normal/copy) =======================================
+    # ========== IMAGE ==========
     if mode in ("normal", "copy"):
         if not req.image_url:
             raise HTTPException(422, "image_url is required for normal mode")
-
         try:
             im = load_image_from_url_or_path(req.image_url)
         except Exception:
             rel, abs_p = gen_preview_path("prev", IMG_EXT)
             im = Image.new("RGB", (1080, 1350), (0, 0, 0))
-            save_image_rgb(im, abs_p)
-            # META
-            _write_meta(rel, {"type": "image", "frames": 1, "cost": 1})
+            im.save(abs_p, "JPEG", quality=92)
+            _write_meta(rel, {"type": "image", "frames": 1, "cost": 1, "render_context": {"mode": mode, "ratio": ratio, "images": [req.image_url] if req.image_url else [], "mapping": mapping}})
             return {
                 "status": "ok",
-                "preview_id": make_id("prev"),
+                "preview_id": Path(rel).stem,
                 "preview_url": rel,
                 "url": rel,
                 "absolute_url": f"http://127.0.0.1:8000{rel}",
                 "mode": mode,
-                "template": None,
                 "ratio": ratio,
-                "overlay": None,
                 "overlay_applied": False,
                 "logo_applied": False,
                 "discount_badge_applied": False,
@@ -663,173 +1306,244 @@ def render_preview(
                 "qr_applied": False,
                 "slots_used": {},
                 "safe_area": {"x": 0, "y": 0, "w": im.width, "h": min(im.height, im.width)},
-                "image_check": {"category": None, "background": "unknown",
-                                "quality": "unknown", "suggestions": [], "meta": {}},
+                "image_check": {
+                    "category": None,
+                    "background": "unknown",
+                    "quality": "unknown",
+                    "suggestions": [],
+                    "meta": {},
+                },
                 "meta": {"width": im.width, "height": im.height},
             }
 
-        w, h = im.width, im.height
-
-        # AI background remove (αν ζητήθηκε)
         if req.ai_bg == "remove":
-            im = _apply_ai_bg_remove(im)
+            try:
+                from rembg import remove  # type: ignore
+                out = remove(im)
+                if isinstance(out, Image.Image):
+                    im = out.convert("RGBA")
+                else:
+                    im = Image.open(BytesIO(out)).convert("RGBA")
+                bg = Image.new("RGB", im.size, (255, 255, 255))
+                bg.paste(im, mask=im.split()[-1])
+                im = bg
+            except Exception as e:
+                log.error("AI BG remove failed: %s", e)
 
-        overlay_applied = False
-        logo_applied = False
-        discount_applied = False
-        cta_applied = False
-        qr_applied = False
-        slots_used: dict = {}
-        safe_area = {"x": 0, "y": 0, "w": w, "h": min(h, w)}
-
-        # Renderer overlay (αν υπάρχει)
+        overlay_applied = logo_applied = discount_applied = cta_applied = qr_applied = False
+        slots_used = {}
+        safe_area = {"x": 0, "y": 0, "w": im.width, "h": min(im.height, im.width)}
         try:
-            result = pillow_render_v2(base_image=im, ratio=ratio, mapping=mapping)
-            im = result.image
-            overlay_applied = True
-            logo_applied = bool(getattr(result, "flags", {}).get("logo_applied"))
-            discount_applied = bool(getattr(result, "flags", {}).get("discount_badge_applied"))
-            cta_applied = bool(getattr(result, "flags", {}).get("cta_applied"))
-            slots_used = getattr(result, "slots", {}) or {}
-            safe_area = getattr(result, "safe_area", None) or safe_area
+            if _renderer_import_ok:
+                r = pillow_render_v2(base_image=im, ratio=ratio, mapping=mapping)
+                im = r.image
+                overlay_applied = True
+                logo_applied = bool(getattr(r, "flags", {}).get("logo_applied"))
+                discount_applied = bool(getattr(r, "flags", {}).get("discount_badge_applied"))
+                cta_applied = bool(getattr(r, "flags", {}).get("cta_applied"))
+                slots_used = getattr(r, "slots", {}) or {}
+                safe_area = getattr(r, "safe_area", None) or safe_area
         except Exception:
             overlay_applied = False
 
-        # ── QR + SHORTLINK integration (auto) ─────────────────────────────────
         short_url = None
         want_qr, tgt_url = _want_qr_and_url()
         if want_qr and tgt_url:
             short_url = _create_or_get_shortlink(tgt_url)
-            qr_side = int(max(160, min(0.22 * min(w, h), 360)))  # 160..360px
+            w0, h0 = im.size
+            qr_side = int(max(160, min(0.22 * min(w0, h0), 360)))
             qr_img = _make_qr_pil(short_url, qr_side)
-            _paste_qr_bottom_right(im, qr_img, margin=int(0.022 * min(w, h)))
+            margin = int(0.022 * min(w0, h0))
+            _paste_qr_bottom_right(im, qr_img, margin=margin)
             qr_applied = True
-        # ─────────────────────────────────────────────────────────────────────
 
         rel, abs_p = gen_preview_path("prev", IMG_EXT)
         save_image_rgb(im, abs_p)
+        _write_meta(rel, {"type": "image", "frames": 1, "cost": 1, "render_context": {"mode": mode, "ratio": ratio, "images": [req.image_url] if req.image_url else [], "mapping": mapping}})
 
-        # META
-        _write_meta(rel, {"type": "image", "frames": 1, "cost": 1})
+        # Creative QC για την τελική εικόνα
+        creative_qc = None
+        try:
+            product_ctx = {
+                "title": mapping.get("title"),
+                "price": mapping.get("price"),
+                "cta": mapping.get("cta"),
+                "discount_pct": mapping.get("discount_pct")
+            }
+            brand_ctx = {"colors": [], "logo_required": False, "tone": "clean-minimal"}
+            creative_qc = _run_creative_qc(product_ctx, [Path(abs_p)], None, brand_ctx)
+        except Exception as e:
+            creative_qc = {"ok": False, "error": f"creative_qc_failed: {e}"}
 
-        checks = build_image_checks(im)
+        # NEW: αποθήκευση creative_qc
+        try:
+            if creative_qc:
+                _save_creative_qc(Path(rel).stem, creative_qc)
+        except Exception as e:
+            log.warning("save creative_qc (image) failed: %s", e)
+
         return {
             "status": "ok",
             "preview_id": Path(rel).stem,
             "preview_url": rel,
-            "url": rel,
             "absolute_url": f"http://127.0.0.1:8000{rel}",
             "mode": mode,
-            "template": None,
             "ratio": ratio,
-            "overlay": None,
             "overlay_applied": overlay_applied,
             "logo_applied": logo_applied,
             "discount_badge_applied": discount_applied,
             "cta_applied": cta_applied,
             "qr_applied": qr_applied,
-            "short_url": short_url,
-            "target_url_raw": tgt_url,
             "slots_used": slots_used,
             "safe_area": safe_area,
-            "image_check": checks,
-            "meta": {"width": im.width, "height": im.height},
+            "image_check": build_image_checks(im),
+            "short_url": short_url,
+            "creative_qc": creative_qc,
         }
 
-    raise HTTPException(422, f"Unsupported mode: {req.mode!s}")
+    raise HTTPException(400, f"Unsupported mode '{mode}'")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Commit & Committed list
-# ──────────────────────────────────────────────────────────────────────────────
 
 @router.post("/commit")
-def commit_preview(
-    req: CommitRequest = Body(...),
-    user = Depends(get_current_user),
-):
+def commit_preview(req: CommitRequest = Body(...), user=Depends(get_current_user)):
+    """
+    Κάνει commit preview -> post. Δεν χρεώνει δεύτερη φορά αν υπάρχει ήδη το post αρχείο.
+    Δέχεται:
+      - preview_id: 'prev_XXXX'
+      - ή preview_url: '/static/generated/prev_XXXX.jpg' ή '.mp4'
+    """
     if not req.preview_id and not req.preview_url:
-        raise HTTPException(400, "preview_id or preview_url is required")
+        raise HTTPException(422, "preview_id or preview_url is required")
 
-    src_url = None
-    if req.preview_url:
-        src_url = req.preview_url
-    elif req.preview_id:
-        candidates = [
-            f"/static/generated/{req.preview_id}.jpg",
-            f"/static/generated/{req.preview_id}.webp",
-            f"/static/generated/{req.preview_id}.mp4",
-            f"/static/generated/{req.preview_id}_sheet.webp",
-        ]
-        for c in candidates:
-            if _abs_from_url(c).exists():
-                src_url = c
-                break
+    if req.preview_id:
+        stem = req.preview_id if req.preview_id.startswith("prev_") else f"prev_{req.preview_id}"
+    else:
+        stem = Path(req.preview_url).stem  # type: ignore[arg-type]
+        if not stem.startswith("prev_"):
+            stem = "prev_" + stem
 
-    if not src_url:
-        raise HTTPException(404, "Preview file not found")
+    # QC hard gate: block commit if latest QC verdict != "approve"
+    try:
+        qc_verdict = _latest_qc_verdict(stem)
+        if qc_verdict and qc_verdict != "approve":
+            raise HTTPException(409, detail={"error":"qc_blocked","message":"Το post δεν πέρασε τα κριτήρια ποιότητας.","can_regenerate": True, "preview_id": stem})
+    except HTTPException:
+        raise
+    except Exception:
+        ...
+    # Υποψήφια αρχεία preview
+    prev_mp4 = GENERATED / f"{stem}.mp4"
+    prev_avi = GENERATED / f"{stem}.avi"
+    prev_jpg = GENERATED / f"{stem}.jpg"
+    prev_webp = GENERATED / f"{stem}.webp"
 
-    # === Credits έλεγχος
-    meta = _read_meta(src_url)
-    cost = 1
-    if meta and isinstance(meta, dict):
+    thumb_url = f"/static/generated/{stem}.jpg" if prev_jpg.exists() else (
+        f"/static/generated/{stem}.webp" if prev_webp.exists() else None
+    )
+
+    # προτίμηση video αν υπάρχει
+    if prev_mp4.exists() or prev_avi.exists():
+        src = prev_mp4 if prev_mp4.exists() else prev_avi
+        dst = GENERATED / f"post_{stem[5:]}.mp4"
+        if not dst.exists():
+            shutil.copy2(src, dst)
+            # χρέωση credits από meta
+            meta = _read_meta(stem) or {}
+            cost = int(meta.get("cost", 5))
+            charge_credits(user, cost)
+        preview_id = stem
+
+        # ΙΣΤΟΡΙΚΟ: γράψε/ενημέρωσε committed_posts
         try:
+            _record_commit(preview_id, f"/static/generated/{dst.name}", thumb_url or "")
+        except Exception as e:
+            log.warning("commit history write failed: %s", e)
+
+        return {
+            "status": "ok",
+            "ok": True,
+            "preview_id": preview_id,
+            "committed_url": f"/static/generated/{dst.name}",
+            "absolute_url": f"http://127.0.0.1:8000/static/generated/{dst.name}",
+            "remaining_credits": get_credits(user),
+        }
+
+    # αλλιώς εικόνα
+    if prev_jpg.exists() or prev_webp.exists():
+        src = prev_jpg if prev_jpg.exists() else prev_webp
+        ext = src.suffix.lower()
+        dst = GENERATED / f"post_{stem[5:]}{ext}"
+        if not dst.exists():
+            shutil.copy2(src, dst)
+            meta = _read_meta(stem) or {}
             cost = int(meta.get("cost", 1))
-        except Exception:
-            cost = 1
-    current = get_credits(user)
-    if current < cost:
-        raise HTTPException(status_code=402, detail=f"Μη επαρκή credits: χρειάζονται {cost}, διαθέσιμα {current}")
+            charge_credits(user, cost)
+        preview_id = stem
 
-    src_abs = _abs_from_url(src_url)
-    if not src_abs.exists():
-        raise HTTPException(404, "Preview file not found")
+        try:
+            _record_commit(preview_id, f"/static/generated/{dst.name}", f"/static/generated/{stem}{ext}")
+        except Exception as e:
+            log.warning("commit history write failed: %s", e)
 
-    ext = src_abs.suffix.lower()
-    if ext not in (".jpg", ".webp", ".mp4"):
-        ext = ".jpg"
+        return {
+            "status": "ok",
+            "ok": True,
+            "preview_id": preview_id,
+            "committed_url": f"/static/generated/{dst.name}",
+            "absolute_url": f"http://127.0.0.1:8000/static/generated/{dst.name}",
+            "remaining_credits": get_credits(user),
+        }
 
-    dst_rel, dst_abs = gen_preview_path("post", ext)
-    shutil.copy2(src_abs, dst_abs)
+    raise HTTPException(404, f"Preview not found for id/url: {req.preview_id or req.preview_url}")
 
-    # Χρέωση
-    charge_credits(user, cost)
-    remaining = get_credits(user)
+
+
+@router.post("/regenerate")
+def regenerate_preview(req: RegenerateRequest = Body(...), user=Depends(get_current_user)):
+    stem = req.preview_id if req.preview_id.startswith("prev_") else f"prev_{req.preview_id}"
+    meta = _read_meta(stem)
+    if not meta or not isinstance(meta, dict):
+        raise HTTPException(404, "render context not found for preview")
+    rc = meta.get("render_context") or {}
+    mode = rc.get("mode") or "video"
+    ratio = rc.get("ratio") or "4:5"
+    images = rc.get("images") or []
+    mapping = rc.get("mapping") or {}
+
+    # Simple improvement plan fallback
+    try:
+        import random as _rnd
+        if len(images) > 1:
+            _rnd.shuffle(images)
+    except Exception:
+        ...
+
+    if mapping and isinstance(mapping, dict):
+        if mapping.get("discount_pct") and not mapping.get("discount_badge"):
+            mapping["discount_badge"] = True
+        if not mapping.get("cta"):
+            mapping["cta"] = "Παράγγειλε τώρα"
+
+    rr = RenderRequest(mode=mode, ratio=ratio, extra_images=images, mapping=mapping, image_url=(images[0] if (mode!='video' and images) else None))
+    result = render_preview(req=rr, user=user)
 
     return {
         "status": "ok",
-        "ok": True,
-        "preview_id": src_abs.stem,
-        "committed_url": dst_rel,
-        "absolute_url": f"http://127.0.0.1:8000{dst_rel}",
-        "remaining_credits": remaining,
+        "regenerated": True,
+        "preview_url": result.get("preview_url"),
+        "video_url": result.get("video_url"),
+        "mode": result.get("mode"),
+        "creative_qc": result.get("creative_qc"),
     }
-
 @router.get("/committed")
-def committed_list(
+def list_committed(
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    user = Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
-    files = sorted(
-        GENERATED.glob("post_*"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    count = len(files)
-    items = []
-    for p in files[offset: offset + limit]:
-        rel = f"/static/generated/{p.name}"
-        items.append({
-            "url": rel,
-            "absolute_url": f"http://127.0.0.1:8000{rel}",
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(int(p.stat().st_mtime))),
-        })
-    return {"ok": True, "count": count, "limit": limit, "offset": offset, "items": items}
-
-@router.get("/health")
-def health():
-    return {"status": "ok", "ts": _ts()}
-
-@router.get("/me/credits")
-def me_credits(user = Depends(get_current_user)):
-    return {"ok": True, "credits": get_credits(user)}
+    """
+    Επιστρέφει το ιστορικό (για το dashboard).
+    Παραδείγμα: GET /previews/committed?limit=10
+    """
+    items = _select_committed(limit=limit, offset=offset)
+    return {"status": "ok", "items": items, "count": len(items)}
