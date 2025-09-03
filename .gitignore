@@ -23,8 +23,8 @@ smoke_*.csv
 # Generated & uploads
 static/generated/
 production_engine/static/generated/
-production_engine/static/uploads/
-static/uploads/
+production_engine/static/uploads/*
+static/uploads/*
 
 # Promo/test outputs
 promo_creator/
@@ -34,3 +34,7 @@ sample_product.jpg
 *.mp4
 *.webm
 *.wav
+
+# keep empty upload dirs
+!static/uploads/.gitkeep
+!production_engine/static/uploads/.gitkeep
