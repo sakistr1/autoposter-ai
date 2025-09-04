@@ -1,0 +1,11 @@
+repos:
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        pass_filenames: false
+        args:
+          - --baseline
+          - .secrets.baseline
+          - --exclude-files
+          - '(\.venv/|^static/|^production_engine/static/|\.png$|\.jpg$|\.jpeg$|\.svg$|\.webp$|\.tar\.gz$)'

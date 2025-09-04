@@ -1,0 +1,4 @@
+.venv/
+backups/
+production_engine/static/generated/tmp_
+production_engine/static/generated/prev_

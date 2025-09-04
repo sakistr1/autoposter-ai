@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ post.title }}</title>
+  <style>
+    body { font-family: Arial; padding: 2em; }
+    img, video { max-width: 100%; margin-top: 1em; border-radius: 10px; }
+    .caption { margin-top: 1em; white-space: pre-wrap; }
+    button { margin-top: 1em; padding: 0.5em 1em; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>{{ post.title }}</h1>
+  <p>{{ post.content }}</p>
+
+  {% if post.type == 'image' %}
+    <img src="{{ post.media_urls[0] }}" alt="Image Post">
+  {% elif post.type == 'carousel' %}
+    {% for url in post.media_urls %}
+      <img src="{{ url }}" alt="Carousel Image">
+    {% endfor %}
+  {% elif post.type == 'video' %}
+    <video controls>
+      <source src="{{ post.media_urls[0] }}" type="video/mp4">
+      Το video δεν υποστηρίζεται.
+    </video>
+  {% endif %}
+
+  <div class="caption">
+    <strong>Caption:</strong><br>
+    {{ post.content }}
+  </div>
+
+  <button onclick="copyCaption()">📋 Αντιγραφή Caption</button>
+  <a href="{{ post.media_urls[0] }}" download>
+    <button>⬇️ Download</button>
+  </a>
+
+  <script>
+    function copyCaption() {
+      navigator.clipboard.writeText(`{{ post.content }}`);
+      alert("Το caption αντιγράφηκε!");
+    }
+  </script>
+</body>
+</html>

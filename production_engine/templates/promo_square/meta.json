@@ -1,0 +1,11 @@
+{
+  "name": "Promo Square",
+  "id": "promo_square",
+  "size": {"w":1080,"h":1080},
+  "requires": ["product_name","price"],
+  "defaults": {
+    "bg_color":"#0b1220",
+    "accent":"#48d597",
+    "cta":"Αγόρασε τώρα"
+  }
+}

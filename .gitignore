@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.pyc
+
+# Venv / env
+.venv/
+.env
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Logs / temp
+logging/
+static/logs/
+*.log
+RENDER.json
+COMMIT.json
+payload.json
+smoke_*.csv
+
+# Generated & uploads
+static/generated/
+production_engine/static/generated/
+production_engine/static/uploads/*
+static/uploads/*
+
+# Promo/test outputs
+promo_creator/
+sample_product.jpg
+
+# Media heavies
+*.mp4
+*.webm
+*.wav
+
+# keep empty upload dirs
+!static/uploads/.gitkeep
+!production_engine/static/uploads/.gitkeep
+.venv/
+venv/
+__pycache__/
+*.pyc
+static/generated/
+production_engine/static/generated/
+production_engine/static/uploads/tmp/
+snapshots/
+.git.broken_*/

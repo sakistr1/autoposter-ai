@@ -1,0 +1,15 @@
+# models/__init__.py — δυναμικό autoload ΟΛΩΝ των model modules,
+# ώστε τα relationship("...") να βρίσκουν τις κλάσεις στο registry.
+
+import importlib, pkgutil
+
+# Φόρτωσε ΟΛΑ τα submodules μέσα στο πακέτο models (εκτός __init__)
+for m in pkgutil.iter_modules(__path__, __name__ + "."):
+    # παρακάτω μπορείς να κάνεις skip modules αν θες, π.χ. migrations
+    importlib.import_module(m.name)
+
+# Προαιρετικά: αν κάποιο code αλλού κάνει "from models import User", κάνε export εδώ:
+try:
+    from .user import User  # noqa: F401
+except Exception:
+    pass

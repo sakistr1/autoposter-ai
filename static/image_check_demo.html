@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Image Check Demo</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;margin:24px;background:#0b0c10;color:#e5e7eb}
+    .card{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:16px;margin-bottom:16px}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    label{display:block;font-size:12px;color:#9ca3af;margin-bottom:4px}
+    input,select,button,textarea{background:#0b1220;border:1px solid #1f2937;color:#e5e7eb;border-radius:10px;padding:10px;font-size:14px}
+    input,select,textarea{width:100%}
+    button{cursor:pointer}
+    .col{flex:1 1 260px;min-width:260px}
+    .pill{display:inline-block;background:#1f2937;border:1px solid #374151;border-radius:999px;padding:6px 10px;margin-right:6px;margin-bottom:6px;font-size:12px}
+    .good{color:#10b981}.warn{color:#f59e0b}.bad{color:#ef4444}
+    .muted{color:#9ca3af}
+    img{max-width:100%;border-radius:12px;border:1px solid #1f2937}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    code{background:#0b1220;border:1px solid #1f2937;border-radius:8px;padding:2px 6px}
+  </style>
+</head>
+<body>
+  <h2>Image Check — Demo</h2>
+
+  <div class="card">
+    <div class="row">
+      <div class="col">
+        <label>API Base</label>
+        <input id="base" value="http://127.0.0.1:8000"/>
+      </div>
+      <div class="col">
+        <label>Bearer TOKEN</label>
+        <input id="token" placeholder="eyJhbGciOi..."/>
+      </div>
+      <div class="col">
+        <label>Platform</label>
+        <select id="platform">
+          <option>instagram</option>
+          <option>facebook</option>
+          <option>tiktok</option>
+          <option>linkedin</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="col">
+        <label>Title</label>
+        <input id="title" value="Κοντομάνικο μπλουζάκι"/>
+      </div>
+      <div class="col">
+        <label>Price</label>
+        <input id="price" value="19,90€"/>
+      </div>
+      <div class="col">
+        <label>Image URL</label>
+        <input id="img" value="http://127.0.0.1:8000/static/demo/outfit1.webp"/>
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top:12px">
+      <button id="btn-plan">Analyze (execute: false)</button>
+      <button id="btn-commit">Render & Commit (execute: true)</button>
+    </div>
+    <div id="msg" class="muted" style="margin-top:8px"></div>
+  </div>
+
+  <div class="row">
+    <div class="card col">
+      <h3 style="margin-top:0">Image Preview</h3>
+      <img id="preview" src="" alt="preview"/>
+    </div>
+
+    <div class="card col">
+      <h3 style="margin-top:0">Image Check</h3>
+      <div id="ic">
+        <div class="muted">Χωρίς δεδομένα ακόμη.</div>
+      </div>
+    </div>
+
+    <div class="card col">
+      <h3 style="margin-top:0">Result</h3>
+      <div id="result" class="muted">—</div>
+    </div>
+  </div>
+
+<script>
+const qs = id => document.getElementById(id);
+const msg = t => qs('msg').textContent = t || '';
+
+async function callManualPlan(execute){
+  const base = qs('base').value.trim();
+  const token = qs('token').value.trim();
+  const platform = qs('platform').value.trim();
+  const title = qs('title').value.trim();
+  const price = qs('price').value.trim();
+  const img = qs('img').value.trim();
+
+  if(!token){ msg('Βάλε TOKEN.'); return; }
+  if(!img){ msg('Βάλε Image URL.'); return; }
+
+  const body = {
+    platform,
+    ratio: "4:5",
+    title,
+    price: price || null,
+    images: [img],
+    execute: !!execute
+  };
+
+  msg('Κλήση /manual/plan …');
+  const r = await fetch(`${base}/manual/plan`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  let data;
+  try {
+    data = await r.json();
+  } catch(e){
+    msg(`HTTP ${r.status}: δεν είναι JSON.`);
+    return;
+  }
+
+  if(!r.ok){
+    msg(`HTTP ${r.status}: ${data.detail || 'Σφάλμα'}`);
+    qs('result').textContent = JSON.stringify(data, null, 2);
+    return;
+  }
+
+  // preview εικόνας (η είσοδος)
+  qs('preview').src = img;
+
+  // image_check box
+  const ic = data?.plan?.image_check || {};
+  const cat = ic.category ?? '—';
+  const bg = ic.background ?? 'unknown';
+  const q = ic.quality ?? 'unknown';
+  const sugg = Array.isArray(ic.suggestions) ? ic.suggestions : [];
+  const meta = ic.meta || {};
+
+  const qualityClass = q === 'ok' ? 'good' : (q === 'low' ? 'bad' : 'muted');
+  const bgClass = bg === 'clean' ? 'good' : (bg === 'busy' ? 'warn' : 'muted');
+
+  qs('ic').innerHTML = `
+    <div>Κατηγορία: <strong>${cat}</strong></div>
+    <div>Ποιότητα: <strong class="${qualityClass}">${q}</strong></div>
+    <div>Φόντο: <strong class="${bgClass}">${bg}</strong></div>
+    <div style="margin-top:6px">Προτάσεις:</div>
+    <div>${sugg.length ? sugg.map(s=>`<span class="pill">${s}</span>`).join('') : '<span class="muted">—</span>'}</div>
+    <div class="muted" style="margin-top:8px">meta: <code>${JSON.stringify(meta)}</code></div>
+  `;
+
+  // result box
+  const url = data.committed_url || '(execute:false — δεν έγινε commit)';
+  qs('result').textContent = `committed_url: ${url}`;
+  msg('OK');
+}
+
+qs('btn-plan').addEventListener('click', () => callManualPlan(false));
+qs('btn-commit').addEventListener('click', () => callManualPlan(true));
+</script>
+</body>
+</html>

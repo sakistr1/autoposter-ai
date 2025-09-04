@@ -1,0 +1,9 @@
+{
+  "template_id": "promo_portrait",
+  "name": "Promo Portrait (4:5)",
+  "type": "image",
+  "ratio": "4:5",
+  "width": 1080,
+  "height": 1350,
+  "fields": ["title", "price", "cta", "brand_color", "product_image_url"]
+}

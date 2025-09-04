@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <title>AutoPoster AI - Επιτυχής Αγορά Credits</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: 'Poppins', Arial, sans-serif;
+      background-color: #f0fdf7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: #0e9770;
+    }
+    .container {
+      background: white;
+      padding: 40px 50px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+    h1 {
+      margin-bottom: 18px;
+      font-weight: 700;
+      font-size: 1.9rem;
+      color: #15b981;
+    }
+    p {
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+      color: #333;
+    }
+    .success-icon {
+      font-size: 64px;
+      color: #15b981;
+      margin-bottom: 20px;
+    }
+    #message {
+      font-size: 1.1rem;
+      color: #0e9770;
+      min-height: 24px;
+    }
+    .btn-home {
+      display: inline-block;
+      text-decoration: none;
+      background-color: #15b981;
+      color: white;
+      padding: 12px 28px;
+      border-radius: 24px;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: background-color 0.25s;
+    }
+    .btn-home:hover {
+      background-color: #0e9770;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="success-icon">&#10004;</div> <!-- ✓ checkmark -->
+    <h1>Επιτυχής Αγορά Credits!</h1>
+    <p>Η αγορά σου ολοκληρώθηκε με επιτυχία.</p>
+    <div id="message">Επιβεβαίωση πληρωμής...</div>
+    <a href="/dashboard.html" class="btn-home">Επιστροφή στο Dashboard</a>
+  </div>
+
+  <script>
+    async function confirmPayment(sessionId) {
+      try {
+        const res = await fetch(`/payment/confirm?session_id=${sessionId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('message').textContent = `Νέο υπόλοιπο credits: ${data.credits}`;
+        } else {
+          document.getElementById('message').textContent = 'Δεν ήταν δυνατή η επιβεβαίωση της πληρωμής.';
+        }
+      } catch {
+        document.getElementById('message').textContent = 'Πρόβλημα δικτύου κατά την επιβεβαίωση.';
+      }
+    }
+
+    window.onload = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('session_id');
+      if (sessionId) {
+        confirmPayment(sessionId);
+      } else {
+        document.getElementById('message').textContent = 'Λείπει το session_id.';
+      }
+    };
+  </script>
+</body>
+</html>
