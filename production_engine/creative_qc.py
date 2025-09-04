@@ -11,7 +11,7 @@ def _extract_contact_sheet(video_path: str, out_jpg: str) -> Optional[str]:
         # 3 frames διάσπαρτα στο timeline, tile=3x1
         cmd = [
             "ffmpeg","-y","-i", video_path,
-            "-frames:v","3","-vf","select='not(mod(n, max(n/3,1)))',tile=3x1,scale=900:-1",
+            "-frames:v","1","-vf","select='not(mod(n, max(n/3,1)))',tile=3x1,scale=900:-1",
             out_jpg
         ]
         subprocess.run(cmd, check=True, capture_output=True)

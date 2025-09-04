@@ -41,6 +41,11 @@ def favicon():
     return Response("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14'>A</text></svg>",
                     media_type="image/svg+xml")
 
+# Υπήρχε μόνο /healthz. Προσθέτουμε και /health για να μη γυρίζει 404 στα checks.
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"ok": True}
+
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
@@ -113,12 +118,15 @@ class TokenOut(BaseModel):
     token_type: str = "bearer"
 
 def _norm(e: str) -> str: return (e or "").strip().lower()
+
 def _hash(p: str) -> str: return pwd_context.hash(p)
+
 
 def _verify(raw: str, hashed: Optional[str]) -> bool:
     if not hashed: return False
     try: return pwd_context.verify(raw, hashed)
     except Exception: return False
+
 
 def _unique_username(db: Session, base: str) -> str:
     base = (base or "user").split("@")[0] or "user"
@@ -132,7 +140,7 @@ def register(b: RegisterIn, db: Session = Depends(get_db)):
     e = _norm(b.email)
     if db.query(User).filter(User.email == e).first():
         raise HTTPException(status_code=409, detail="Email already registered")
-    u = User(email=e, username=b.username or __unique_username(db, e),
+    u = User(email=e, username=b.username or _unique_username(db, e),
              hashed_password=_hash(b.password), is_active=True)
     if not getattr(u, "credits", None):
         try: setattr(u, "credits", 50)

@@ -2,6 +2,19 @@ from pydantic import BaseModel, HttpUrl, EmailStr
 from typing import List, Optional, Any, Dict, Union
 from datetime import datetime
 
+# ==========================
+# Helper: mode normalization
+# ==========================
+def _normalize_mode(m: Optional[str]) -> str:
+    s = (m or '').strip().lower()
+    return {
+        'κανονικό': 'normal',
+        'κανονικο': 'normal',
+        'funny': 'normal',
+        'professional': 'normal',
+    }.get(s, s or 'normal')
+
+
 
 # ----------------- Woo / Billing -----------------
 
@@ -167,3 +180,7 @@ class TEngineCommitRequest(BaseModel):
     preview_url: str
     caption: Optional[str] = None
     post_type: Optional[str] = None
+
+
+class DeletePreviewRequest(BaseModel):
+    preview_id: str

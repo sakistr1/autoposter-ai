@@ -620,7 +620,7 @@ def _make_contact_sheet(video_path: Path) -> Path | None:
         cmd = [
             "ffmpeg","-y","-v","error",
             "-i", str(video_path),
-            "-frames:v","1",
+            "-frames:v","3",
             "-vf","select='not(mod(n, max(n/3,1)))',tile=3x1,scale=900:-1",
             str(out)
         ]
@@ -983,6 +983,19 @@ def render_preview(req: RenderRequest = Body(...), user=Depends(get_current_user
     if not req.logo_url and req.brand_logo_url:
         req.logo_url = req.brand_logo_url
 
+# strict ratio whitelist
+if (req.ratio or "4:5") not in {"1:1","4:5","9:16"}:
+    raise HTTPException(422, detail={"error":"bad_ratio","message":"ratio must be one of 1:1, 4:5, 9:16"})
+
+# if normal/copy, require image_url and ensure local file exists (for local paths)
+if _norm_mode(req.mode) in ("normal","copy"):
+    if not req.image_url:
+        raise HTTPException(422, detail={"error":"missing_image_url","message":"image_url is required for mode=Κανονικό/normal"})
+    s = (req.image_url or "").strip().lower()
+    if not (s.startswith("http://") or s.startswith("https://") or s.startswith("data:") or s.startswith("file:")):
+        p = _abs_from_url(req.image_url)
+        if not p.exists():
+            raise HTTPException(422, detail={"error":"missing_local_file","message":f"local image_url not found: {req.image_url}"})
     mapping: dict = {}
     if isinstance(req.mapping, MappingV2):
         mapping.update(req.mapping.model_dump(exclude_none=True))
@@ -1552,16 +1565,15 @@ def list_committed(
     return {"status": "ok", "items": items, "count": len(items)}
 
 
-
-
 @router.post("/delete")
-def delete_preview(req: DeletePreviewRequest = Body(...), user=Depends(get_current_user)):
+def delete_preview(req: 'DeletePreviewRequest' = Body(...), user=Depends(get_current_user)):
     pid = (req.preview_id or "").strip()
     if not pid:
         raise HTTPException(status_code=422, detail={"error":"missing_preview_id"})
     stem = pid if pid.startswith("prev_") else f"prev_{pid}"
-    deleted = []
-    for base in [GENERATED, Path("production_engine/static/generated")]:
+    deleted: list[str] = []
+    bases = [GENERATED, Path("production_engine/static/generated")]
+    for base in bases:
         base = Path(base)
         if not base.exists():
             continue
