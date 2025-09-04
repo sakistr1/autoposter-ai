@@ -38,3 +38,12 @@ sample_product.jpg
 # keep empty upload dirs
 !static/uploads/.gitkeep
 !production_engine/static/uploads/.gitkeep
+.venv/
+venv/
+__pycache__/
+*.pyc
+static/generated/
+production_engine/static/generated/
+production_engine/static/uploads/tmp/
+snapshots/
+.git.broken_*/
