@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Response, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -49,6 +49,26 @@ def health():
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# >>> POSTS: σερβίρισμα /post_{id}.jpg από static/generated  (χειρουργική προσθήκη)
+GEN_DIR = PAGES_DIR / "generated"
+GEN_DIR.mkdir(parents=True, exist_ok=True)
+
+@app.head("/post_{pid}.jpg", include_in_schema=False)
+def head_post_image(pid: str):
+    fp = GEN_DIR / f"post_{pid}.jpg"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="Not Found")
+    return Response(status_code=200)
+
+@app.get("/post_{pid}.jpg", include_in_schema=False)
+def get_post_image(pid: str):
+    fp = GEN_DIR / f"post_{pid}.jpg"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="Not Found")
+    # no-cache για να μην «κολλάει» παλιό 404
+    return FileResponse(fp, media_type="image/jpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ORM hotfixes (ευθυγράμμιση σχέσεων)
