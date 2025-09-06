@@ -21,7 +21,7 @@ payload.json
 smoke_*.csv
 
 # Generated & uploads
-static/generated/
+
 production_engine/static/generated/
 production_engine/static/uploads/*
 static/uploads/*
@@ -42,7 +42,7 @@ sample_product.jpg
 venv/
 __pycache__/
 *.pyc
-static/generated/
+
 production_engine/static/generated/
 production_engine/static/uploads/tmp/
 snapshots/
@@ -55,4 +55,6 @@ env/
 __pycache__/
 *.pyc
 # generated media
-static/generated/
+
+/static/generated/*
+!/static/generated/.keep
