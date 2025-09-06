@@ -47,3 +47,12 @@ production_engine/static/generated/
 production_engine/static/uploads/tmp/
 snapshots/
 .git.broken_*/
+
+# Python venv
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+# generated media
+static/generated/
